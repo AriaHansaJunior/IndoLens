@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+weights/*.pt
+weights/*.onnx
+outputs/*
+!outputs/.gitkeep
+temp/*
+!temp/.gitkeep
+datasets/*
+!datasets/.gitkeep
+embeddings/*.npy
+embeddings/*.pkl
+!embeddings/.gitkeep
+.env
