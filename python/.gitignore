@@ -15,3 +15,5 @@ embeddings/*.npy
 embeddings/*.pkl
 !embeddings/.gitkeep
 .env
+*.pt
+

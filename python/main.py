@@ -22,6 +22,14 @@ from facenet.embedding_generator import (
     calculate_euclidean_distance,
     find_best_match
 )
+from yolo.detector import (
+    load_model as yolo_load_model,
+    detect_faces as yolo_detect_faces,
+    predict_frame as yolo_predict_frame,
+    predict_video as yolo_predict_video,
+    export_detection
+)
+from yolo.face_cropper import crop_face as yolo_crop_face
 
 # ==========================================
 # RESERVED METHOD STUBS (Session 1, 3, & 4)
@@ -30,12 +38,12 @@ from facenet.embedding_generator import (
 # face detection method
 def detect_faces(frame):
     """Detect faces in a given frame using YOLOv8."""
-    pass
+    return yolo_detect_faces(frame)
 
 # face cropping
 def crop_face(frame, bbox):
-    """Crop face region from frame based on bounding box."""
-    pass
+    """Crop face region from frame based on bounding box into in-memory numpy array."""
+    return yolo_crop_face(frame, bbox)
 
 # feature extraction method
 def extract_features(face_img):
@@ -64,8 +72,8 @@ def format_json_response(status, command, message, data):
 
 # video processor
 def process_video(video_path):
-    """Process input video frame by frame for facial detection and recognition."""
-    pass
+    """Process input video frame by frame for facial detection."""
+    return yolo_predict_video(video_path)
 
 # overlay renderer
 def render_overlay(frame, detections):
@@ -124,6 +132,37 @@ def main():
             res = run_embedding_generation()
             print(format_json_response("success", "generate-embeddings", "FaceNet embeddings generated successfully.", res))
 
+        elif command == "detect-video":
+            video_input = sys.argv[2] if len(sys.argv) > 2 else ""
+            if not video_input:
+                raise ValueError("Missing video file argument for detect-video command.")
+            res = process_video(video_input)
+            print(json.dumps(res, indent=2))
+
+        elif command == "detect-frame":
+            image_input = sys.argv[2] if len(sys.argv) > 2 else ""
+            if not image_input:
+                raise ValueError("Missing image file argument for detect-frame command.")
+            img = read_image(image_input)
+            if hasattr(img, "convert"):
+                import numpy as np
+                img = np.array(img.convert("RGB"))
+            dets = yolo_predict_frame(img)
+            serializable_dets = []
+            for d in dets:
+                serializable_dets.append({
+                    "bbox": d["bbox"],
+                    "confidence": d["confidence"]
+                })
+            res = export_detection({
+                "image": str(image_input),
+                "faces_count": len(serializable_dets),
+                "faces": serializable_dets
+            })
+            res["command"] = "detect-frame"
+            print(json.dumps(res, indent=2))
+
+
         else:
             video_input = sys.argv[1] if len(sys.argv) > 1 else ""
             data = {
@@ -141,3 +180,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

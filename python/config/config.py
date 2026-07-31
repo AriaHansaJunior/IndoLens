@@ -23,3 +23,12 @@ RESULTS_DIR = PUBLIC_DIR / "results"
 # Recognition settings
 FACENET_EMBEDDING_DIM = 128
 FACE_DISTANCE_THRESHOLD = 0.6
+
+# YOLO Face Detection settings
+YOLO_MODEL_PATH = WEIGHTS_DIR / "yolov8n-face.pt"
+YOLO_FALLBACK_MODEL = "yolov8n.pt"
+YOLO_CONFIDENCE = float(os.getenv("YOLO_CONFIDENCE", 0.5))
+YOLO_IOU = float(os.getenv("YOLO_IOU", 0.45))
+YOLO_IMAGE_SIZE = int(os.getenv("YOLO_IMAGE_SIZE", 640))
+YOLO_DEVICE = os.getenv("YOLO_DEVICE", "cpu")
+
