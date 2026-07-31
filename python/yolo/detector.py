@@ -110,7 +110,11 @@ def predict_video(video_path):
     :return: dict structured detection result matching Session 3 JSON schema
     """
     start_time = time.time()
+    # Load model ONCE before video processing loop
+    load_model()
+
     cap = open_video(video_path)
+
 
     total_frames = get_total_frame(cap)
     fps = get_fps(cap)
