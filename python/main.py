@@ -14,25 +14,23 @@ from utils.dataset_validator import validate_dataset, validate_actor_folder, val
 from utils.dataset_loader import load_dataset, load_actor, load_images
 from utils.image_loader import read_image, convert_rgb
 from utils.image_preprocessor import resize_image, normalize_image, prepare_tensor
-from facenet.embedding_generator import (
-    load_facenet_model,
-    generate_embedding,
-    save_embedding,
+from recognition import (
+    load_all_embeddings,
     load_actor_embeddings,
-    calculate_euclidean_distance,
-    find_best_match
+    compare_embedding,
+    find_best_match,
+    calculate_distance,
+    calculate_all_distances,
+    verify_threshold,
+    classify_result,
+    recognize_face,
+    recognize_frame,
+    recognize_video,
+    export_recognition
 )
-from yolo.detector import (
-    load_model as yolo_load_model,
-    detect_faces as yolo_detect_faces,
-    predict_frame as yolo_predict_frame,
-    predict_video as yolo_predict_video,
-    export_detection
-)
-from yolo.face_cropper import crop_face as yolo_crop_face
 
 # ==========================================
-# RESERVED METHOD STUBS (Session 1, 3, & 4)
+# RESERVED METHOD STUBS (Session 1, 3, 4 & 5)
 # ==========================================
 
 # face detection method
@@ -162,6 +160,24 @@ def main():
             res["command"] = "detect-frame"
             print(json.dumps(res, indent=2))
 
+        elif command == "recognize-video":
+            video_input = sys.argv[2] if len(sys.argv) > 2 else ""
+            if not video_input:
+                raise ValueError("Missing video file argument for recognize-video command.")
+            res = recognize_video(video_input)
+            print(json.dumps(res, indent=2))
+
+        elif command == "recognize-frame":
+            image_input = sys.argv[2] if len(sys.argv) > 2 else ""
+            if not image_input:
+                raise ValueError("Missing image file argument for recognize-frame command.")
+            dets = recognize_frame(image_input)
+            res = export_recognition({
+                "image": str(image_input),
+                "faces_count": len(dets),
+                "detections": dets
+            }, command="recognize-frame", message="Recognition completed.")
+            print(json.dumps(res, indent=2))
 
         else:
             video_input = sys.argv[1] if len(sys.argv) > 1 else ""
