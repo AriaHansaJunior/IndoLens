@@ -7,10 +7,10 @@ use Illuminate\Http\Request;
 class HomeController extends Controller
 {
     /**
-     * Display the home page.
+     * Display the main IndoLens interface.
      */
     public function index()
     {
-        return view('welcome');
+        return view('home');
     }
 }
