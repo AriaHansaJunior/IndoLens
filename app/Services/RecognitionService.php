@@ -2,14 +2,69 @@
 
 namespace App\Services;
 
+use App\Services\Python\PythonProcessService;
+use App\Services\ResultParserService;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
+use Exception;
+
 class RecognitionService
 {
+    protected PythonProcessService $pythonProcessService;
+    protected ResultParserService $resultParserService;
+
+    public function __construct(
+        PythonProcessService $pythonProcessService,
+        ResultParserService $resultParserService
+    ) {
+        $this->pythonProcessService = $pythonProcessService;
+        $this->resultParserService = $resultParserService;
+    }
+
     /**
-     * Coordinate actor recognition workflow.
+     * Coordinate video recognition pipeline.
+     */
+    public function recognizeVideo(string $videoPath): array
+    {
+        $execution = $this->pythonProcessService->runRecognition($videoPath);
+        $rawOutput = $execution['output'] ?? '';
+
+        return $this->resultParserService->parse($rawOutput);
+    }
+
+    /**
+     * Store uploaded video temporarily for Python processing.
+     */
+    public function storeTemporaryVideo(UploadedFile $file): string
+    {
+        $tempDir = config('recognition.temporary_path', storage_path('app/ai/temp'));
+
+        if (!File::exists($tempDir)) {
+            File::makeDirectory($tempDir, 0755, true);
+        }
+
+        $filename = uniqid('video_', true) . '.' . $file->getClientOriginalExtension();
+        $storedFile = $file->move($tempDir, $filename);
+
+        return $storedFile->getRealPath();
+    }
+
+    /**
+     * Remove temporary video file after processing.
+     */
+    public function cleanup(string $filePath): bool
+    {
+        if (File::exists($filePath)) {
+            return File::delete($filePath);
+        }
+        return false;
+    }
+
+    /**
+     * Coordinate actor recognition workflow (Reserved stub compatibility).
      */
     public function processRecognition(string $videoPath): array
     {
-        // Reserved method for coordinating recognition workflow
-        return [];
+        return $this->recognizeVideo($videoPath);
     }
 }

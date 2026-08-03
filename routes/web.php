@@ -7,5 +7,8 @@ use App\Http\Controllers\ActorController;
 
 Route::get('/', [HomeController::class, 'index']);
 Route::post('/upload', [RecognitionController::class, 'upload']);
+Route::post('/recognize', [RecognitionController::class, 'recognize']);
+Route::get('/result', [RecognitionController::class, 'result']);
+
 Route::get('/actors', [ActorController::class, 'index']);
 Route::get('/actors/{id}', [ActorController::class, 'show']);

@@ -189,9 +189,17 @@ def main():
             }
             print(format_json_response("initialized", "process-video", "Video processor initialized.", data))
 
-    except Exception as err:
+    except ValueError as err:
         print(format_json_response("error", command, str(err), {}))
-        sys.exit(1)
+        sys.exit(2)
+    except FileNotFoundError as err:
+        print(format_json_response("error", command, str(err), {}))
+        sys.exit(2)
+    except Exception as err:
+        err_str = str(err)
+        exit_code = 3 if ("model" in err_str.lower() or "torch" in err_str.lower() or "yolo" in err_str.lower() or "facenet" in err_str.lower()) else 1
+        print(format_json_response("error", command, err_str, {}))
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":
