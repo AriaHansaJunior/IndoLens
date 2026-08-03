@@ -1,5 +1,9 @@
 @extends('layouts.app')
 
+@section('assets')
+    @vite(['resources/css/actors.css', 'resources/js/actors.js'])
+@endsection
+
 @section('content')
 <div class="actors-container">
     

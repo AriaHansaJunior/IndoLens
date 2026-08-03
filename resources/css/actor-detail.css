@@ -1,0 +1,312 @@
+/* ==========================================
+   INDOLENS - ACTOR DETAIL STYLESHEET
+   ========================================== */
+
+/* ------------------------------------------
+   1. ROOT & VARIABLES
+   ------------------------------------------ */
+:root {
+    --bg-dark: #05070E;
+    --card-bg: #0B0F19;
+    --primary: #165DFF;
+    --primary-hover: #0E4BDB;
+    --border-color: #2A3142;
+    --text-white: #FFFFFF;
+    --text-muted: #8F9BBA;
+    --known-green: #00FF66;
+    --transition-fast: 0.2s ease;
+    --transition-medium: 0.3s ease;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn var(--transition-medium);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.detail-container {
+    max-width: 1000px;
+    width: 92%;
+    margin: 0 auto;
+    padding: 20px 0 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+/* ------------------------------------------
+   2. HEADER
+   ------------------------------------------ */
+.detail-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.logo-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--primary), #0042D9);
+    color: #FFFFFF;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 1px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(22, 93, 255, 0.3);
+    text-decoration: none;
+}
+
+/* ------------------------------------------
+   3. NAVIGATION
+   ------------------------------------------ */
+.nav-section {
+    display: flex;
+    align-items: center;
+}
+
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background-color: var(--card-bg);
+    color: var(--text-white);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.btn-back:hover {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    transform: scale(1.03);
+}
+
+/* ------------------------------------------
+   4. PHOTO
+   ------------------------------------------ */
+.detail-content {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+}
+
+.actor-photo-wrapper {
+    width: 320px;
+    flex-shrink: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background-color: #000000;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    animation: fadePhoto 0.5s ease;
+}
+
+.actor-photo {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    aspect-ratio: 3 / 4;
+}
+
+@keyframes fadePhoto {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* ------------------------------------------
+   5. ACTOR
+   ------------------------------------------ */
+.actor-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.actor-name-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.actor-title {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--text-white);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.actor-character {
+    font-size: 18px;
+    color: var(--known-green);
+    font-weight: 500;
+}
+
+/* ------------------------------------------
+   6. METADATA
+   ------------------------------------------ */
+.meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    background: var(--card-bg);
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.meta-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.meta-value {
+    font-size: 15px;
+    color: var(--text-white);
+    font-weight: 500;
+}
+
+/* ------------------------------------------
+   7. BIOGRAPHY
+   ------------------------------------------ */
+.biography-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-white);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.biography-content {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #D1D5DB;
+    max-height: 200px; /* Limits excessive height */
+    overflow-y: auto;
+    padding-right: 12px;
+}
+
+/* Custom Scrollbar for bio */
+.biography-content::-webkit-scrollbar {
+    width: 6px;
+}
+.biography-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+.biography-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+/* ------------------------------------------
+   8. FILMOGRAPHY
+   ------------------------------------------ */
+.filmography-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.filmography-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.filmography-item {
+    position: relative;
+    padding-left: 20px;
+    font-size: 15px;
+    color: var(--text-white);
+    display: flex;
+    justify-content: space-between;
+}
+
+.filmography-item::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--primary);
+    font-size: 18px;
+    line-height: 1;
+    top: 0;
+}
+
+.film-year {
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* ------------------------------------------
+   9. BUTTON
+   ------------------------------------------ */
+/* Handled in Navigation section */
+
+/* ------------------------------------------
+   10. RESPONSIVE
+   ------------------------------------------ */
+@media (max-width: 900px) {
+    .detail-content {
+        flex-direction: column;
+        align-items: center;
+        gap: 32px;
+    }
+    
+    .actor-photo-wrapper {
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .actor-title {
+        text-align: center;
+    }
+
+    .actor-character {
+        text-align: center;
+    }
+}
+
+@media (max-width: 600px) {
+    .meta-grid {
+        grid-template-columns: 1fr;
+    }
+}

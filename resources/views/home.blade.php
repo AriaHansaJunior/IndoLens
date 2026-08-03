@@ -1,5 +1,9 @@
 @extends('layouts.app')
 
+@section('assets')
+    @vite(['resources/css/home.css', 'resources/js/home.js'])
+@endsection
+
 @section('content')
 
 <!-- Video Player Section -->

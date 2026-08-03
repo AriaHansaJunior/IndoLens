@@ -12,7 +12,9 @@ export default defineConfig({
                 'resources/css/home.css',
                 'resources/js/home.js',
                 'resources/css/actors.css',
-                'resources/js/actors.js'
+                'resources/js/actors.js',
+                'resources/css/actor-detail.css',
+                'resources/js/actor-detail.js'
             ],
             refresh: true,
             fonts: [
