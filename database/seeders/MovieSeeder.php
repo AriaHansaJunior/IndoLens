@@ -15,38 +15,17 @@ class MovieSeeder extends Seeder
         $movies = [
             [
                 'id' => 1,
-                'title' => 'Dilan 1990',
+                'title' => 'Yowis Ben',
                 'release_year' => 2018,
-                'poster' => 'movies/dilan_1990.jpg',
-                'description' => 'A romantic drama following Milea and high school student Dilan in 1990s Bandung.',
+                'poster' => 'movies/yowis_ben.jpg',
+                'description' => 'A comedy film directed by Fajar Nugros and Bayu Skak.',
             ],
             [
                 'id' => 2,
-                'title' => 'Habibie & Ainun',
-                'release_year' => 2012,
-                'poster' => 'movies/habibie_ainun.jpg',
-                'description' => 'Biographical drama portraying the life story of 3rd Indonesian President B.J. Habibie and his wife Ainun.',
-            ],
-            [
-                'id' => 3,
-                'title' => 'The Raid',
-                'release_year' => 2011,
-                'poster' => 'movies/the_raid.jpg',
-                'description' => 'An action martial arts film detailing a SWAT team raid on an apartment building controlled by a drug lord.',
-            ],
-            [
-                'id' => 4,
-                'title' => 'Tenggelamnya Kapal Van Der Wijck',
-                'release_year' => 2013,
-                'poster' => 'movies/van_der_wijck.jpg',
-                'description' => 'A classic romance drama adapting Buya Hamka\'s novel on cultural differences and tragedy.',
-            ],
-            [
-                'id' => 5,
-                'title' => 'Perburuan',
-                'release_year' => 2019,
-                'poster' => 'movies/perburuan.jpg',
-                'description' => 'Historical drama based on Pramoedya Ananta Toer\'s novel depicting the PETA rebellion.',
+                'title' => 'Sekawan Limo',
+                'release_year' => 2024,
+                'poster' => 'movies/sekawan_limo.jpg',
+                'description' => 'A comedy horror film directed by Bayu Skak.',
             ],
         ];
 

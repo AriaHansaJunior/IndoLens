@@ -14,10 +14,7 @@ class ActorFilmographySeeder extends Seeder
     {
         $filmographies = [
             ['id' => 1, 'actor_id' => 1, 'movie_id' => 1],
-            ['id' => 2, 'actor_id' => 2, 'movie_id' => 2],
-            ['id' => 3, 'actor_id' => 3, 'movie_id' => 3],
-            ['id' => 4, 'actor_id' => 4, 'movie_id' => 4],
-            ['id' => 5, 'actor_id' => 5, 'movie_id' => 5],
+            ['id' => 2, 'actor_id' => 1, 'movie_id' => 2],
         ];
 
         foreach ($filmographies as $filmographyData) {

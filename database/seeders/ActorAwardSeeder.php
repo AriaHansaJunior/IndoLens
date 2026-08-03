@@ -16,32 +16,14 @@ class ActorAwardSeeder extends Seeder
             [
                 'id' => 1,
                 'actor_id' => 1,
-                'award_name' => 'Indonesian Movie Actors Awards - Favorite Actor',
+                'award_name' => 'Piala Citra - Nominasi Penulis Skenario Asli Terbaik',
                 'award_year' => 2018,
             ],
             [
                 'id' => 2,
-                'actor_id' => 2,
-                'award_name' => 'Festival Film Indonesia - Best Actor',
-                'award_year' => 2013,
-            ],
-            [
-                'id' => 3,
-                'actor_id' => 3,
-                'award_name' => 'Indonesian Movie Actors Awards - Best Actor',
-                'award_year' => 2014,
-            ],
-            [
-                'id' => 4,
-                'actor_id' => 4,
-                'award_name' => 'Festival Film Bandung - Best Actress',
-                'award_year' => 2014,
-            ],
-            [
-                'id' => 5,
-                'actor_id' => 5,
-                'award_name' => 'Festival Film Indonesia - Best Supporting Actor',
-                'award_year' => 2013,
+                'actor_id' => 1,
+                'award_name' => 'Piala Maya - Nominasi Sutradara Pendatang Baru Terpilih',
+                'award_year' => 2019,
             ],
         ];
 
