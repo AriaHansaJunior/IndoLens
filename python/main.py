@@ -8,27 +8,9 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from config.dataset import DATASET_PATH, EMBEDDING_PATH
-from utils.dataset_scanner import scan_dataset, scan_actor, scan_images
-from utils.dataset_validator import validate_dataset, validate_actor_folder, validate_images, count_images
-from utils.dataset_loader import load_dataset, load_actor, load_images
-from utils.image_loader import read_image, convert_rgb
-from utils.image_preprocessor import resize_image, normalize_image, prepare_tensor
-from recognition import (
-    load_all_embeddings,
-    load_actor_embeddings,
-    compare_embedding,
-    find_best_match,
-    calculate_distance,
-    calculate_all_distances,
-    verify_threshold,
-    classify_result,
-    recognize_face,
-    recognize_frame,
-    recognize_video,
-    export_recognition,
-    render_video
-)
+from utils.logger import initialize_logger, log_info, log_success, log_warning, log_error, log_execution
+from utils.exception import handle_exception, handle_model_error, handle_video_error, handle_dataset_error, IndoLensException
+from utils.validator import validate_video, validate_dataset, validate_output
 
 # ==========================================
 # RESERVED METHOD STUBS (Session 1, 3, 4 & 5)
@@ -114,28 +96,37 @@ def run_embedding_generation():
 
 def main():
     start_time = time.time()
+    logger = initialize_logger()
     command = sys.argv[1] if len(sys.argv) > 1 else "default"
+
+    log_info(f"Command [{command}] received.")
 
     try:
         if command == "scan":
             summary = scan_dataset()
+            log_success("Dataset scanned successfully.")
             print(format_json_response("success", "scan", "Dataset scanned successfully.", {"scan_results": summary}))
 
         elif command == "validate":
             report = validate_dataset()
             status_str = "success" if report.get("valid") else "error"
             msg = "Dataset validation passed." if report.get("valid") else "Dataset validation failed."
+            if report.get("valid"):
+                log_success(msg)
+            else:
+                log_warning(msg)
             print(format_json_response(status_str, "validate", msg, report))
 
         elif command == "generate-embeddings":
             res = run_embedding_generation()
+            log_success("FaceNet embeddings generated successfully.")
             print(format_json_response("success", "generate-embeddings", "FaceNet embeddings generated successfully.", res))
 
         elif command == "detect-video":
             video_input = sys.argv[2] if len(sys.argv) > 2 else ""
-            if not video_input:
-                raise ValueError("Missing video file argument for detect-video command.")
+            validate_video(video_input)
             res = process_video(video_input)
+            log_success(f"Detection completed for video: {video_input}")
             print(json.dumps(res, indent=2))
 
         elif command == "detect-frame":
@@ -159,12 +150,12 @@ def main():
                 "faces": serializable_dets
             })
             res["command"] = "detect-frame"
+            log_success(f"Detection completed for image: {image_input}")
             print(json.dumps(res, indent=2))
 
         elif command == "recognize-video":
             video_input = sys.argv[2] if len(sys.argv) > 2 else ""
-            if not video_input:
-                raise ValueError("Missing video file argument for recognize-video command.")
+            validate_video(video_input)
             
             # Optional Metadata Injection passed from Laravel (LOCK 26 & 28)
             actor_metadata = None
@@ -195,6 +186,8 @@ def main():
                     res["data"]["actor_metadata"] = actor_metadata
 
             # 5. Return JSON Single Source of Truth
+            elapsed = time.time() - start_time
+            log_success(f"Recognition completed for video '{video_input}' in {elapsed:.2f}s.")
             print(json.dumps(res, indent=2))
 
         elif command == "recognize-frame":
@@ -219,13 +212,20 @@ def main():
             }
             print(format_json_response("initialized", "process-video", "Video processor initialized.", data))
 
+    except IndoLensException as err:
+        log_error(f"IndoLensException: {err.message}")
+        print(format_json_response("error", command, err.message, {"code": err.code}))
+        sys.exit(2)
     except ValueError as err:
+        log_error(f"ValueError: {str(err)}")
         print(format_json_response("error", command, str(err), {}))
         sys.exit(2)
     except FileNotFoundError as err:
+        log_error(f"FileNotFoundError: {str(err)}")
         print(format_json_response("error", command, str(err), {}))
         sys.exit(2)
     except Exception as err:
+        log_error(f"Exception: {str(err)}")
         err_str = str(err)
         exit_code = 3 if ("model" in err_str.lower() or "torch" in err_str.lower() or "yolo" in err_str.lower() or "facenet" in err_str.lower()) else 1
         print(format_json_response("error", command, err_str, {}))

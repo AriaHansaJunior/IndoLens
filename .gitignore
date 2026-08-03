@@ -25,3 +25,17 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Python & AI Outputs
+python/__pycache__/
+python/*/__pycache__/
+python/outputs/logs/
+python/outputs/reports/
+python/outputs/evaluation/
+python/temp/
+*.pyc
+*.npy
+
+# Temporary Storage
+/storage/app/ai/temp/
+/storage/app/ai/results/

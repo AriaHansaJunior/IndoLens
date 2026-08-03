@@ -1,58 +1,138 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# IndoLens — Indonesian Actor Recognition System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**IndoLens** adalah sistem pengenalan wajah aktor Indonesia berbasis kecerdasan buatan (*Computer Vision*) yang menggabungkan **YOLOv8** (Face Detection) dan **FaceNet** (128-D Facial Feature Embedding & Recognition) dengan antarmuka web **Laravel 11** modern.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🏗️ Architecture Overview
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **Single Orchestrator**: Laravel bertanggung jawab mengelola antarmuka pengguna (UI), database MySQL, validasi, dan alur aplikasi.
+- **Pure AI Processing Engine**: Python bertugas murni untuk deteksi wajah (*YOLOv8*), ekstraksi fitur & klasifikasi identitas (*FaceNet*), serta rendering *Overlay*.
+- **Master Data Independence**: Sistem dirancang agnostik terhadap jumlah data aktor di database (1 hingga 30+ aktor tanpa perubahan kode).
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 📁 Project Structure
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```text
+IndoLens/
+├── app/                        # Logika Utama Laravel Backend
+│   ├── Http/Controllers/       # Controller (HomeController, ActorController, RecognitionController)
+│   ├── Models/                 # Model Eloquent (Actor, Movie, Character, ActorAward, dll)
+│   └── Services/               # Orchestration & Service Layer
+│       ├── ActorService.php    # Relasi Metadata Aktor & Karakter
+│       ├── RecognitionService.php # Koordinasi Pipeline Upload & AI Process
+│       ├── ResultParserService.php# Validasi & Parsing Output JSON Python
+│       └── Python/             # Symfony Process wrapper untuk eksekusi Python
+├── config/                     # Berkas Konfigurasi Aplikasi (recognition.php, dll)
+├── database/
+│   ├── migrations/             # Struktur Tabel Database MySQL
+│   └── seeders/                # Seeder Data Master Aktor & Film
+├── python/                     # Core Processing Engine (Python)
+│   ├── config/                 # Konfigurasi Path & Hyperparameter (threshold, resolution)
+│   ├── datasets/               # Dataset Wajah Aktor (FaceNet Training Data)
+│   ├── embeddings/             # Simpanan Vektor 128-D (.npy)
+│   ├── evaluation/             # Modul Evaluasi Performa Bab 4 (metrics, confusion_matrix, performance)
+│   ├── facenet/                # Implementasi Modul Ekstraksi FaceNet
+│   ├── recognition/            # Engine Pengenalan Wajah & Threshold Matching
+│   ├── utils/                  # Utility Scripts (logger, exception, validator, image loader)
+│   ├── yolo/                   # Detektor Wajah YOLOv8
+│   └── main.py                 # CLI Orchestrator Utama Python Engine
+├── resources/                  # Frontend Blade Templates, Modern CSS, dan Vanilla JavaScript
+│   ├── css/                    # Custom Styling per Halaman (home, actors, actor-detail)
+│   ├── js/                     # Client-Side DOM Search & Interaction Logic
+│   └── views/                  # Blade Templates Layout & Views
+├── routes/                     # Definition Endpoint Web Routes (web.php)
+└── storage/                    # Simpanan Berkas Sementara & Storage Link Public
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+## 🛠️ Prerequisites & Requirements
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### System Requirements:
+- **PHP** >= 8.2
+- **Composer** >= 2.0
+- **Node.js** >= 18.0 & **npm**
+- **Python** >= 3.10
+- **MySQL / MariaDB**
 
-## Code of Conduct
+### Python Packages (`python/requirements.txt`):
+- `torch` & `torchvision`
+- `facenet-pytorch`
+- `ultralytics` (YOLOv8)
+- `opencv-python`
+- `scikit-learn`
+- `matplotlib`
+- `psutil`
+- `numpy`
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## 🚀 Installation & Setup Guide
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 1. Clone Repository & Setup Environment
+```bash
+git clone https://github.com/your-repo/IndoLens.git
+cd IndoLens
 
-## License
+# Copy Environment File
+cp .env.example .env
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### 2. Install PHP & Node Dependencies
+```bash
+composer install
+npm install
+```
+
+### 3. Generate App Key & Database Setup
+Sesuaikan kredensial MySQL pada berkas `.env`, lalu jalankan:
+```bash
+php artisan key:generate
+php artisan migrate:fresh --seed
+php artisan storage:link
+```
+
+### 4. Install Python Dependencies
+```bash
+pip install -r python/requirements.txt
+```
+
+---
+
+## 🎮 How to Run IndoLens
+
+### 1. Jalankan Assets Bundler & Web Server
+Buka terminal dan jalankan:
+```bash
+# Terminal 1: Vite Dev Server
+npm run dev
+
+# Terminal 2: Laravel Server
+php artisan serve
+```
+Akses aplikasi melalui peramban di: `http://127.0.0.1:8000`
+
+### 2. Generate FaceNet Embeddings (Python)
+Untuk membuat ulang atau memperbarui file embedding `.npy` dari dataset:
+```bash
+python python/main.py generate-embeddings
+```
+
+### 3. Jalankan Pengenalan Wajah via CLI (Opsional)
+```bash
+python python/main.py recognize-video public/videos/demo.mp4
+```
+
+### 4. Menjalankan Modul Evaluasi (Bab 4 Skripsi)
+Untuk menguji performa presisi, recall, F1-score, dan confusion matrix:
+```bash
+python python/tests/test_evaluation.py
+```
+Hasil evaluasi akan otomatis diekspor ke folder `python/outputs/reports/` (`evaluation.json`, `evaluation.csv`, `evaluation_summary.txt`) dan `python/outputs/evaluation/confusion_matrix.png`.
+
+---
+
+## 📜 License
+Proyek IndoLens dikembangkan untuk keperluan akademik dan penelitian skripsi.
