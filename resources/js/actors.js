@@ -132,5 +132,12 @@ const ActorList = {
             this.elements.searchInput.value = '';
             this.filterActors('');
         }
+    },
+
+    /**
+     * Navigate back to Home page.
+     */
+    goBack() {
+        window.location.href = '/';
     }
 };

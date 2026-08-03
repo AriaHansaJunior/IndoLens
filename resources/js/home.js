@@ -49,14 +49,9 @@ const IndoLensHome = {
             progressBarFill: document.getElementById('progressBarFill'),
             
             // Buttons
-            btnBackDemo: document.getElementById('btnBackDemo'),
             btnActorList: document.getElementById('btnActorList'),
-            btnActorDetail: document.getElementById('btnActorDetail'),
             
-            // Modal & Toast
-            confirmModal: document.getElementById('confirmModal'),
-            modalConfirmBtn: document.getElementById('modalConfirmBtn'),
-            modalCancelBtn: document.getElementById('modalCancelBtn'),
+            // Toast
             toastContainer: document.getElementById('toastContainer'),
         };
     },
@@ -113,22 +108,6 @@ const IndoLensHome = {
             });
         }
 
-        if (this.elements.btnBackDemo) {
-            this.elements.btnBackDemo.addEventListener('click', () => {
-                this.showPopup();
-            });
-        }
-
-        if (this.elements.modalConfirmBtn) {
-            this.elements.modalConfirmBtn.addEventListener('click', () => {
-                this.confirmResetDemo();
-            });
-        }
-
-        if (this.elements.modalCancelBtn) {
-            this.elements.modalCancelBtn.addEventListener('click', () => {
-                this.hidePopup();
-            });
         }
     },
 
@@ -335,46 +314,16 @@ const IndoLensHome = {
     },
 
     enableActorButton() {
-        if (this.elements.btnActorDetail) {
-            this.elements.btnActorDetail.disabled = false;
-            if (this.selectedActorId) {
-                this.elements.btnActorDetail.href = `/actors/${this.selectedActorId}`;
-            }
-        }
+        // Reserved stub (Actor List is always active)
     },
 
     disableActorButton() {
-        if (this.elements.btnActorDetail) {
-            this.elements.btnActorDetail.disabled = true;
-            this.elements.btnActorDetail.removeAttribute('href');
-        }
+        // Reserved stub (Actor List is always active)
     },
 
     /* =========================================================================
        RESERVED METHODS - POPUP MODAL & TOAST
        ========================================================================= */
-
-    showPopup() {
-        this.elements.confirmModal.classList.add('active');
-    },
-
-    hidePopup() {
-        this.elements.confirmModal.classList.remove('active');
-    },
-
-    confirmResetDemo() {
-        this.hidePopup();
-        this.resetDemo();
-    },
-
-    resetDemo() {
-        this.currentMode = 'demo';
-        this.recognitionData = null;
-        this.selectedActorId = null;
-        this.initializeUpload();
-        this.playDemo();
-        this.showToast('Kembali ke video demonstrasi.', 'success');
-    },
 
     showToast(message, type = 'info') {
         const toast = document.createElement('div');

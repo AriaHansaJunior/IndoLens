@@ -62,13 +62,6 @@
 
 <!-- Control Buttons Section -->
 <div class="actions-section">
-    <button type="button" id="btnBackDemo" class="btn btn-secondary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-        Back To Demo
-    </button>
-
     <a href="/actors" id="btnActorList" class="btn btn-primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
@@ -77,29 +70,6 @@
         </svg>
         Actor List
     </a>
-
-    <a id="btnActorDetail" class="btn btn-secondary" disabled>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="16" x2="12" y2="12"/>
-            <line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
-        Actor Detail
-    </a>
-</div>
-
-<!-- Modal Popup Confirmation -->
-<div class="modal-backdrop" id="confirmModal">
-    <div class="modal-card">
-        <div class="modal-title">Kembali ke video demo?</div>
-        <div class="modal-body">
-            Video yang diunggah dan hasil pengenalan wajah akan ditutup.
-        </div>
-        <div class="modal-actions">
-            <button type="button" id="modalCancelBtn" class="btn btn-secondary">Tidak</button>
-            <button type="button" id="modalConfirmBtn" class="btn btn-primary">Ya</button>
-        </div>
-    </div>
 </div>
 
 @endsection
