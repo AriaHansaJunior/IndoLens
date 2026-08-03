@@ -11,25 +11,24 @@ class Character extends Model
     use HasFactory;
 
     protected $fillable = [
-        'actor_id',
-        'movie_id',
+        'actor_name',
+        'movie_title',
         'character_name',
-        'recognition_label',
     ];
 
     /**
-     * Get the actor playing this character.
+     * Get associated actor model.
      */
     public function actor(): BelongsTo
     {
-        return $this->belongsTo(Actor::class);
+        return $this->belongsTo(Actor::class, 'actor_name', 'full_name');
     }
 
     /**
-     * Get the movie this character belongs to.
+     * Get associated movie model.
      */
     public function movie(): BelongsTo
     {
-        return $this->belongsTo(Movie::class);
+        return $this->belongsTo(Movie::class, 'movie_title', 'title');
     }
 }

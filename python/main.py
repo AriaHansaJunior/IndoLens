@@ -11,6 +11,8 @@ if str(BASE_DIR) not in sys.path:
 from utils.logger import initialize_logger, log_info, log_success, log_warning, log_error, log_execution
 from utils.exception import handle_exception, handle_model_error, handle_video_error, handle_dataset_error, IndoLensException
 from utils.validator import validate_video, validate_dataset, validate_output
+from recognition.recognition_engine import recognize_video
+from recognition.overlay_renderer import render_video
 
 # ==========================================
 # RESERVED METHOD STUBS (Session 1, 3, 4 & 5)

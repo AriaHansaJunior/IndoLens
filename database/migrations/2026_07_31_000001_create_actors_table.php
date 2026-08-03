@@ -15,12 +15,14 @@ return new class extends Migration
             $table->id();
             $table->string('full_name');
             $table->date('birth_date')->nullable();
+            $table->string('birth_place')->nullable();
             $table->integer('age')->nullable();
-            $table->string('nationality')->nullable();
-            $table->string('height')->nullable();
-            $table->string('occupation')->nullable();
+            $table->string('gender')->nullable();
             $table->string('photo')->nullable();
-            $table->text('summary')->nullable();
+            $table->text('biography')->nullable();
+            $table->string('instagram')->nullable();
+            $table->string('wikipedia')->nullable();
+            $table->string('imdb')->nullable();
             $table->timestamps();
         });
     }

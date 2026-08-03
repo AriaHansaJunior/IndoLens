@@ -60,7 +60,14 @@ class PythonProcessService
             $command = $this->buildCommand($command, $arguments);
         }
 
-        $result = Process::run($command);
+        $systemRoot = getenv('SystemRoot') ?: (getenv('SYSTEMROOT') ?: 'C:\\Windows');
+        $path = getenv('PATH') ?: getenv('Path');
+
+        $result = Process::env([
+            'SystemRoot' => $systemRoot,
+            'SYSTEMROOT' => $systemRoot,
+            'PATH' => $path,
+        ])->run($command);
         $this->lastResult = $result;
 
         $output = $this->captureOutput();

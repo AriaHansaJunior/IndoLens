@@ -15,22 +15,20 @@ class CharacterSeeder extends Seeder
         $characters = [
             [
                 'id' => 1,
-                'actor_id' => 1,
-                'movie_id' => 1,
+                'actor_name' => 'Bayu Skak',
+                'movie_title' => 'Yowis Ben',
                 'character_name' => 'Bayu',
-                'recognition_label' => 'Bayu',
             ],
             [
                 'id' => 2,
-                'actor_id' => 1,
-                'movie_id' => 2,
-                'character_name' => 'Bagas',
-                'recognition_label' => 'Bagas',
-            ],
+                'actor_name' => 'Bayu Skak',
+                'movie_title' => 'Sekawan Limo',
+                'character_name' => 'Bagus',
+            ]
         ];
 
-        foreach ($characters as $charData) {
-            Character::updateOrCreate(['id' => $charData['id']], $charData);
+        foreach ($characters as $data) {
+            Character::updateOrCreate(['id' => $data['id']], $data);
         }
     }
 }

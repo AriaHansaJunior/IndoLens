@@ -3,46 +3,42 @@
 namespace App\Services;
 
 use App\Models\Actor;
-use App\Models\Movie;
 use App\Models\Character;
+use App\Models\Movie;
 use Illuminate\Support\Collection;
 
 class ActorService
 {
     /**
-     * Get actor detail by ID.
+     * Get actor detail by ID with characters and aliases.
      */
     public function getActorDetail($id): Actor
     {
-        return Actor::with('characters.movie')->findOrFail($id);
+        return Actor::with(['characters', 'aliases', 'images'])->findOrFail($id);
     }
 
     /**
-     * Get character name for an actor, optionally filtered by movie.
+     * Get character played by an actor.
      */
-    public function getCharacter(Actor $actor, $movie = null): ?Character
+    public function getCharacter(Actor $actor, $movieTitle = null): ?Character
     {
-        // If a specific movie ID is provided (e.g., from recognition session), filter by it.
-        if ($movie) {
-            return $actor->characters()->where('movie_id', $movie)->first();
+        if ($movieTitle) {
+            return Character::where('actor_name', $actor->full_name)
+                ->where('movie_title', $movieTitle)
+                ->first();
         }
-        
-        // Otherwise return the first associated character
-        return $actor->characters()->first();
+
+        return Character::where('actor_name', $actor->full_name)->first();
     }
 
     /**
-     * Get filmography (movies) for the actor, ordered by release year.
+     * Get filmography movies associated with the actor.
      */
     public function getMovies(Actor $actor): Collection
     {
-        // Assuming movies are linked through character relationships or filmography pivot
-        // Based on Session 11 blueprint, we use 'characters -> movies' relation
-        $movies = $actor->characters->map(function ($character) {
-            return $character->movie;
-        })->filter()->unique('id');
+        $movieTitles = Character::where('actor_name', $actor->full_name)
+            ->pluck('movie_title');
 
-        // Sort DESC by release_year
-        return $movies->sortByDesc('release_year')->values();
+        return Movie::whereIn('title', $movieTitles)->get();
     }
 }

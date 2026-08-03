@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Actor extends Model
 {
@@ -14,12 +13,14 @@ class Actor extends Model
     protected $fillable = [
         'full_name',
         'birth_date',
+        'birth_place',
         'age',
-        'nationality',
-        'height',
-        'occupation',
+        'gender',
         'photo',
-        'summary',
+        'biography',
+        'instagram',
+        'wikipedia',
+        'imdb',
     ];
 
     /**
@@ -27,30 +28,22 @@ class Actor extends Model
      */
     public function characters(): HasMany
     {
-        return $this->hasMany(Character::class);
+        return $this->hasMany(Character::class, 'actor_name', 'full_name');
     }
 
     /**
-     * Get awards received by the actor.
+     * Get aliases for the actor.
      */
-    public function awards(): HasMany
+    public function aliases(): HasMany
     {
-        return $this->hasMany(ActorAward::class);
+        return $this->hasMany(ActorAlias::class, 'actor_name', 'full_name');
     }
 
     /**
-     * Get filmography pivot records for the actor.
+     * Get FaceNet dataset images for the actor.
      */
-    public function filmographies(): HasMany
+    public function images(): HasMany
     {
-        return $this->hasMany(ActorFilmography::class);
-    }
-
-    /**
-     * Get movies associated with the actor.
-     */
-    public function movies(): BelongsToMany
-    {
-        return $this->belongsToMany(Movie::class, 'actor_filmographies');
+        return $this->hasMany(ActorImage::class, 'actor_name', 'full_name');
     }
 }

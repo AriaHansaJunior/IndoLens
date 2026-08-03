@@ -18,8 +18,8 @@ class DatabaseSeeder extends Seeder
             ActorSeeder::class,
             MovieSeeder::class,
             CharacterSeeder::class,
-            ActorAwardSeeder::class,
-            ActorFilmographySeeder::class,
+            ActorAliasSeeder::class,
+            ActorImageSeeder::class,
         ]);
     }
 }

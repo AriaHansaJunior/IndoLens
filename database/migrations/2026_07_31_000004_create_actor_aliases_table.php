@@ -11,11 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('actor_awards', function (Blueprint $table) {
+        Schema::create('actor_aliases', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('actor_id')->constrained('actors')->cascadeOnDelete();
-            $table->string('award_name');
-            $table->integer('award_year')->nullable();
+            $table->string('actor_name');
+            $table->string('alias');
             $table->timestamps();
         });
     }
@@ -25,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('actor_awards');
+        Schema::dropIfExists('actor_aliases');
     }
 };

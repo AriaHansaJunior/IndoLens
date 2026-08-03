@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('actor_filmographies', function (Blueprint $table) {
+        Schema::create('actor_images', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('actor_id')->constrained('actors')->cascadeOnDelete();
-            $table->foreignId('movie_id')->constrained('movies')->cascadeOnDelete();
+            $table->string('actor_name');
+            $table->string('image');
             $table->timestamps();
         });
     }
@@ -24,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('actor_filmographies');
+        Schema::dropIfExists('actor_images');
     }
 };

@@ -6,21 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ActorAward extends Model
+class ActorImage extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'actor_id',
-        'award_name',
-        'award_year',
+        'actor_name',
+        'image',
     ];
 
     /**
-     * Get the actor for this award.
+     * Get associated actor model.
      */
     public function actor(): BelongsTo
     {
-        return $this->belongsTo(Actor::class);
+        return $this->belongsTo(Actor::class, 'actor_name', 'full_name');
     }
 }

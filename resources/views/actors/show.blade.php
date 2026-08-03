@@ -9,18 +9,13 @@
     
     <!-- Page Header -->
     <header class="detail-header">
-        <a href="/" class="logo-badge" title="Back to Home">FD</a>
-    </header>
-
-    <!-- Navigation -->
-    <section class="nav-section">
         <a href="/actors" id="btnBack" class="btn-back">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
-            Back
+            Kembali
         </a>
-    </section>
+    </header>
 
     <!-- Content Section -->
     <section class="detail-content">
@@ -41,8 +36,12 @@
 
             <div class="meta-grid">
                 <div class="meta-item">
+                    <span class="meta-label">Jenis Kelamin</span>
+                    <span class="meta-value">{{ $actor->gender ?? '-' }}</span>
+                </div>
+                <div class="meta-item">
                     <span class="meta-label">Umur</span>
-                    <span class="meta-value">{{ $actor->age ?? '-' }} Tahun</span>
+                    <span class="meta-value">{{ $actor->age ? $actor->age . ' Tahun' : '-' }}</span>
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Tanggal Lahir</span>
@@ -50,32 +49,33 @@
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Tempat Lahir</span>
-                    <span class="meta-value">{{ $actor->birth_place ?? $actor->nationality ?? '-' }}</span>
+                    <span class="meta-value">{{ $actor->birth_place ?? '-' }}</span>
                 </div>
             </div>
 
             <div class="biography-section">
                 <div class="section-title">Biografi</div>
                 <div class="biography-content">
-                    {!! nl2br(e($actor->summary ?? 'Biografi belum tersedia untuk aktor ini.')) !!}
+                    {!! nl2br(e($actor->biography ?? 'Biografi belum tersedia untuk aktor ini.')) !!}
                 </div>
             </div>
 
-            <div class="filmography-section">
-                <div class="section-title">Filmografi</div>
-                @if($movies->isNotEmpty())
-                    <ul class="filmography-list" id="filmographyList">
-                        @foreach($movies as $movie)
-                            <li class="filmography-item">
-                                <span>{{ $movie->title }}</span>
-                                <span class="film-year">{{ $movie->release_year }}</span>
-                            </li>
-                        @endforeach
-                    </ul>
-                @else
-                    <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Belum ada data filmografi.</p>
-                @endif
-            </div>
+            @if($actor->instagram || $actor->wikipedia || $actor->imdb)
+                <div class="biography-section">
+                    <div class="section-title">Tautan Luar</div>
+                    <div class="biography-content" style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
+                        @if($actor->instagram)
+                            <a href="{{ $actor->instagram }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Instagram</a>
+                        @endif
+                        @if($actor->wikipedia)
+                            <a href="{{ $actor->wikipedia }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Wikipedia</a>
+                        @endif
+                        @if($actor->imdb)
+                            <a href="{{ $actor->imdb }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">IMDb</a>
+                        @endif
+                    </div>
+                </div>
+            @endif
 
         </div>
     </section>
