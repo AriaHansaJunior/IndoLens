@@ -4,7 +4,7 @@ Validates inputs (video, datasets, embeddings, weights, output dirs) before proc
 """
 
 import os
-from exception import VideoProcessingError, DatasetError
+from utils.exception import VideoProcessingError, DatasetError
 
 VALID_VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.mkw']
 

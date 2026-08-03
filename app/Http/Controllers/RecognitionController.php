@@ -62,6 +62,7 @@ class RecognitionController extends Controller
 
             return view('pages.result', ['result' => $result]);
         } catch (Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Recognition error: ' . $e->getMessage());
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'status' => 'error',

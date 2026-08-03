@@ -6,7 +6,7 @@ Handles exceptions across Python pipeline safely.
 import sys
 import traceback
 from typing import Dict, Any
-from logger import log_error
+from utils.logger import log_error
 
 class IndoLensException(Exception):
     """Base exception class for IndoLens application."""
