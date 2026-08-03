@@ -26,7 +26,8 @@ from recognition import (
     recognize_face,
     recognize_frame,
     recognize_video,
-    export_recognition
+    export_recognition,
+    render_video
 )
 
 # ==========================================
@@ -164,7 +165,36 @@ def main():
             video_input = sys.argv[2] if len(sys.argv) > 2 else ""
             if not video_input:
                 raise ValueError("Missing video file argument for recognize-video command.")
+            
+            # Optional Metadata Injection passed from Laravel (LOCK 26 & 28)
+            actor_metadata = None
+            if len(sys.argv) > 3:
+                raw_meta = sys.argv[3]
+                try:
+                    if Path(raw_meta).exists():
+                        with open(raw_meta, "r", encoding="utf-8") as f:
+                            actor_metadata = json.load(f)
+                    else:
+                        actor_metadata = json.loads(raw_meta)
+                except Exception:
+                    actor_metadata = None
+
+            # 1. Recognize via AI Core (LOCK 27: Pure Recognition)
             res = recognize_video(video_input)
+            
+            # 2. Extract Detections
+            frames_data = res.get("data", {}).get("frames", [])
+            
+            # 3. Render Video with Metadata Overlay (LOCK 28)
+            output_video_path = render_video(video_input, frames_data, actor_metadata=actor_metadata)
+            
+            # 4. Inject Output Video Path & Metadata to JSON response
+            if "data" in res and isinstance(res["data"], dict):
+                res["data"]["output_video"] = output_video_path
+                if actor_metadata:
+                    res["data"]["actor_metadata"] = actor_metadata
+
+            # 5. Return JSON Single Source of Truth
             print(json.dumps(res, indent=2))
 
         elif command == "recognize-frame":

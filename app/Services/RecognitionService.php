@@ -22,11 +22,11 @@ class RecognitionService
     }
 
     /**
-     * Coordinate video recognition pipeline.
+     * Coordinate video recognition pipeline with optional actor metadata (LOCK 26).
      */
-    public function recognizeVideo(string $videoPath): array
+    public function recognizeVideo(string $videoPath, array $actorMetadata = []): array
     {
-        $execution = $this->pythonProcessService->runRecognition($videoPath);
+        $execution = $this->pythonProcessService->runRecognition($videoPath, $actorMetadata);
         $rawOutput = $execution['output'] ?? '';
 
         return $this->resultParserService->parse($rawOutput);

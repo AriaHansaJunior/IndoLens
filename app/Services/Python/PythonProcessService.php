@@ -11,11 +11,16 @@ class PythonProcessService
     protected ?ProcessResult $lastResult = null;
 
     /**
-     * Run recognition command specifically for a video file.
+     * Run recognition command specifically for a video file, optionally passing actor metadata (LOCK 26).
      */
-    public function runRecognition(string $videoPath): array
+    public function runRecognition(string $videoPath, array $actorMetadata = []): array
     {
-        return $this->runCommand('recognize-video', [$videoPath]);
+        $args = [$videoPath];
+        if (!empty($actorMetadata)) {
+            $args[] = json_encode($actorMetadata);
+        }
+
+        return $this->runCommand('recognize-video', $args);
     }
 
     /**
