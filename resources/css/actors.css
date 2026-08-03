@@ -1,0 +1,264 @@
+/* ==========================================
+   INDOLENS - ACTOR LIST STYLESHEET
+   ========================================== */
+
+/* ------------------------------------------
+   1. ROOT & VARIABLES
+   ------------------------------------------ */
+:root {
+    --bg-dark: #05070E;
+    --card-bg: #0B0F19;
+    --primary: #165DFF;
+    --primary-hover: #0E4BDB;
+    --border-color: #2A3142;
+    --border-glow: rgba(22, 93, 255, 0.4);
+    --text-white: #FFFFFF;
+    --text-muted: #8F9BBA;
+    --known-green: #00FF66;
+    --unknown-white: #FFFFFF;
+    --transition-fast: 0.2s ease;
+    --transition-medium: 0.3s ease;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn var(--transition-medium);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.actors-container {
+    max-width: 1400px;
+    width: 92%;
+    margin: 0 auto;
+    padding: 20px 0 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+/* ------------------------------------------
+   2. HEADER
+   ------------------------------------------ */
+.actors-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.logo-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--primary), #0042D9);
+    color: #FFFFFF;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 1px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(22, 93, 255, 0.3);
+    text-decoration: none;
+}
+
+.page-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-white);
+}
+
+/* ------------------------------------------
+   3. SEARCH
+   ------------------------------------------ */
+.search-section {
+    width: 100%;
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.search-input {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 20px 16px 52px;
+    color: var(--text-white);
+    font-size: 16px;
+    outline: none;
+    transition: all var(--transition-medium);
+}
+
+.search-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 16px var(--border-glow);
+}
+
+.search-icon {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    width: 20px;
+    height: 20px;
+}
+
+/* ------------------------------------------
+   4. GRID
+   ------------------------------------------ */
+.actors-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* Desktop default: 4/row */
+    gap: 24px;
+    width: 100%;
+    transition: all var(--transition-medium);
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--card-bg);
+    border: 1px dashed var(--border-color);
+    border-radius: 16px;
+    color: var(--text-muted);
+}
+
+/* ------------------------------------------
+   5. CARD
+   ------------------------------------------ */
+.actor-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+}
+
+.actor-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 16px var(--border-glow);
+    border-color: var(--primary);
+}
+
+/* Hidden by Search */
+.actor-card.hidden {
+    display: none !important;
+}
+
+.card-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+}
+
+.actor-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-white);
+    margin: 0;
+}
+
+.status-badge {
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-known {
+    background: rgba(0, 255, 102, 0.15);
+    color: var(--known-green);
+    border: 1px solid rgba(0, 255, 102, 0.3);
+}
+
+/* ------------------------------------------
+   6. IMAGE
+   ------------------------------------------ */
+.card-image-wrapper {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    position: relative;
+    background-color: #000000;
+}
+
+.actor-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-medium);
+}
+
+.actor-card:hover .actor-photo {
+    transform: scale(1.05);
+}
+
+/* ------------------------------------------
+   7. BUTTON
+   ------------------------------------------ */
+.btn-detail {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px;
+    margin-top: auto;
+    background-color: #1A2130;
+    color: var(--text-white);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    gap: 8px;
+}
+
+.btn-detail:hover {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: #FFFFFF;
+}
+
+/* ------------------------------------------
+   8. RESPONSIVE
+   ------------------------------------------ */
+@media (max-width: 1200px) {
+    /* Laptop */
+    .actors-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    /* Tablet */
+    .actors-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    /* Mobile */
+    .actors-grid {
+        grid-template-columns: 1fr;
+    }
+}

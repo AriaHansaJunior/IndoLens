@@ -41,6 +41,21 @@ class RecognitionController extends Controller
             $videoPath = $this->recognitionService->storeTemporaryVideo($request->file('video'));
             $result = $this->recognitionService->recognizeVideo($videoPath);
 
+            // Extract recognized actor names (ignoring 'unknown')
+            $recognizedNames = [];
+            $frames = $result['data']['frames'] ?? [];
+            foreach ($frames as $frame) {
+                foreach ($frame['detections'] ?? [] as $det) {
+                    $name = $det['name'] ?? 'unknown';
+                    if ($name !== 'unknown') {
+                        // Normalize snake_case to Title Case (bayu_skak -> Bayu Skak)
+                        $normalized = ucwords(str_replace('_', ' ', $name));
+                        $recognizedNames[] = $normalized;
+                    }
+                }
+            }
+            session(['recognized_actor_names' => array_unique($recognizedNames)]);
+
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json($result);
             }
