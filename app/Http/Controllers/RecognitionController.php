@@ -16,9 +16,6 @@ class RecognitionController extends Controller
     }
 
     /**
-     * Handle video upload and initiate recognition workflow.
-     */
-    /**
      * Handle video upload and return instant original video response (< 1s).
      */
     public function upload(Request $request)
@@ -33,6 +30,8 @@ class RecognitionController extends Controller
         try {
             // Reset recognized actors list for new video upload
             session()->forget('recognized_actor_names');
+            session()->forget('current_video_url');
+            session()->forget('recognition_data');
 
             $videoPath = $this->recognitionService->storeTemporaryVideo($request->file('video'));
             $filename = basename($videoPath);
@@ -44,6 +43,12 @@ class RecognitionController extends Controller
             }
             copy($videoPath, $publicUploadsDir . '/' . $filename);
             $videoUrl = asset('uploads/' . $filename);
+
+            // Save uploaded video URL in session for page navigation persistence
+            session([
+                'current_video_url' => $videoUrl,
+                'current_video_token' => $filename,
+            ]);
 
             return response()->json([
                 'status' => 'success',
@@ -62,10 +67,8 @@ class RecognitionController extends Controller
     }
 
     /**
-     * Execute recognition pipeline on previously uploaded video.
-     */
-    /**
-     * Execute recognition pipeline asynchronously on previously uploaded video.
+     * Execute recognition pipeline synchronously on previously uploaded video.
+     * Returns full result JSON when Python finishes.
      */
     public function recognize(Request $request)
     {
@@ -85,19 +88,6 @@ class RecognitionController extends Controller
             }
         }
 
-        // Backwards compatibility if video file is sent directly to recognize endpoint
-        if (!$videoPath && $request->hasFile('video')) {
-            $allowedExtensions = implode(',', config('recognition.allowed_extensions', ['mp4', 'avi', 'mov', 'mkv']));
-            $maxSize = config('recognition.max_video_size', 51200);
-
-            $request->validate([
-                'video' => ['required', 'file', 'mimes:' . $allowedExtensions, 'max:' . $maxSize],
-            ]);
-
-            $videoPath = $this->recognitionService->storeTemporaryVideo($request->file('video'));
-            $videoToken = basename($videoPath);
-        }
-
         if (!$videoPath || !file_exists($videoPath)) {
             return response()->json([
                 'status' => 'error',
@@ -106,66 +96,16 @@ class RecognitionController extends Controller
         }
 
         try {
-            $resultsDir = storage_path('app/ai/results');
-            if (!file_exists($resultsDir)) {
-                mkdir($resultsDir, 0755, true);
-            }
+            // Prevent PHP from timing out during long recognition
+            set_time_limit(0);
+            ini_set('max_execution_time', 0);
 
-            $statusFilePath = $resultsDir . '/' . basename($videoToken) . '.json';
-            
-            // Initialize status JSON
-            file_put_contents($statusFilePath, json_encode([
-                'status' => 'processing',
-                'progress' => 0,
-                'stage' => 'Initializing...',
-                'video_url' => null,
-                'actors' => []
-            ], JSON_PRETTY_PRINT));
+            // Run Python recognition synchronously (waits until done)
+            $result = $this->recognitionService->recognizeVideo($videoPath);
 
-            // Start background Python execution
-            $this->recognitionService->startBackgroundRecognition($videoPath, [
-                'video_token' => $videoToken,
-                'status_file_path' => $statusFilePath
-            ]);
-
-            return response()->json([
-                'status' => 'processing',
-                'message' => 'Recognition process accepted and running in background.',
-                'video_token' => $videoToken,
-            ], 202);
-        } catch (Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Recognition start error: ' . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to initiate recognition process: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Get recognition status and finalize when completed.
-     */
-    public function status(string $token)
-    {
-        $statusFilePath = storage_path('app/ai/results/' . basename($token) . '.json');
-
-        if (!file_exists($statusFilePath)) {
-            return response()->json([
-                'status' => 'processing',
-                'progress' => 0,
-                'stage' => 'Initializing...',
-                'video_url' => null,
-                'actors' => []
-            ]);
-        }
-
-        $content = file_get_contents($statusFilePath);
-        $data = json_decode($content, true) ?: [];
-
-        // If Python finished, perform Laravel finalization (video publish & actor session)
-        if (($data['status'] ?? '') === 'finalizing') {
+            // Extract recognized actor names from frames data
             $recognizedNames = [];
-            $frames = $data['python_result']['data']['frames'] ?? [];
+            $frames = $result['data']['frames'] ?? [];
             foreach ($frames as $frame) {
                 foreach ($frame['detections'] ?? [] as $det) {
                     $status = $det['status'] ?? 'unknown';
@@ -182,7 +122,45 @@ class RecognitionController extends Controller
             }
             $recognizedNames = array_values(array_unique($recognizedNames));
 
-            $outputVideoPath = $data['python_result']['data']['output_video'] ?? ($data['python_result']['output_video'] ?? null);
+            // Enrich actors data for frontend pause overlay
+            $enrichedActors = [];
+            if (!empty($recognizedNames)) {
+                $dbActors = \App\Models\Actor::whereIn('full_name', $recognizedNames)->with('characters.movie')->get();
+                foreach ($dbActors as $dbActor) {
+                    $characterName = $dbActor->characters->first() ? $dbActor->characters->first()->character_name : null;
+                    
+                    $filmography = [];
+                    foreach ($dbActor->characters as $char) {
+                        if ($char->movie) {
+                            $filmography[] = $char->movie->title;
+                        }
+                    }
+                    
+                    $enrichedActors[] = [
+                        'id' => $dbActor->id,
+                        'name' => $dbActor->full_name,
+                        'character' => $characterName,
+                        'age' => $dbActor->age,
+                        'filmography' => array_values(array_unique($filmography))
+                    ];
+                }
+            }
+
+            // Fallback if no actors matched in DB but detection returned names
+            if (empty($enrichedActors) && !empty($recognizedNames)) {
+                foreach ($recognizedNames as $idx => $name) {
+                    $enrichedActors[] = [
+                        'id' => $idx + 1,
+                        'name' => $name,
+                        'character' => 'Unknown',
+                        'age' => 'Unknown',
+                        'filmography' => []
+                    ];
+                }
+            }
+
+            // Copy overlay video to public/results/
+            $outputVideoPath = $result['data']['output_video'] ?? null;
             $videoUrl = null;
             if ($outputVideoPath && file_exists($outputVideoPath)) {
                 $filename = basename($outputVideoPath);
@@ -199,22 +177,26 @@ class RecognitionController extends Controller
                 'progress' => 100,
                 'stage' => 'Completed',
                 'video_url' => $videoUrl,
-                'actors' => $recognizedNames,
-                'data' => $data['python_result']['data'] ?? []
+                'actors' => $enrichedActors,
+                'data' => $result['data'] ?? []
             ];
 
+            // Persist session state so video survives page navigation
             session([
-                'current_video_token' => $token,
+                'current_video_token' => $videoToken,
                 'current_video_url' => $videoUrl,
                 'recognized_actor_names' => $recognizedNames,
                 'recognition_data' => $finalData
             ]);
 
-            file_put_contents($statusFilePath, json_encode($finalData, JSON_PRETTY_PRINT));
             return response()->json($finalData);
+        } catch (Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Recognition error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Recognition failed: ' . $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json($data);
     }
 
     /**

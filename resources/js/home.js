@@ -231,18 +231,18 @@ const IndoLensHome = {
     pollTimer: null,
 
     startRecognition(file) {
-        if (this.pollTimer) clearInterval(this.pollTimer);
         this.isProcessing = true;
         this.currentMode = 'user';
-        this.toggleOverlay(false); // Hide overlay during processing
+        this.toggleOverlay(false);
 
         if (this.elements.uploadSection) this.elements.uploadSection.style.display = 'none';
         if (this.elements.btnUploadNew) this.elements.btnUploadNew.style.display = 'none';
 
-        // Instant Preview fallback from local file
+        // Show instant preview (paused)
         try {
             const previewUrl = URL.createObjectURL(file);
             this.replaceVideo(previewUrl);
+            this.elements.mainVideo.pause();
         } catch (e) {
             console.warn('[IndoLens] Failed to create local preview URL:', e);
         }
@@ -254,7 +254,6 @@ const IndoLensHome = {
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-        // Step 1: Uploading Video (< 1s response)
         this.updateProgress('Uploading Video...', 15);
 
         fetch('/upload', {
@@ -274,15 +273,25 @@ const IndoLensHome = {
         .then(uploadData => {
             console.log('[IndoLens] Upload Success:', uploadData);
             
-            // Immediately play uploaded video from server URL if available
+            // Show uploaded video from server (paused)
             if (uploadData.video_url) {
                 this.replaceVideo(uploadData.video_url);
+                this.elements.mainVideo.pause();
             }
 
             const videoToken = uploadData.video_token;
-            this.updateProgress('Initializing Recognition...', 20);
+            this.updateProgress('Mengenali Wajah... (mohon tunggu)', 30);
 
-            // Step 2: Trigger Async Background Recognition (Returns 202 Accepted immediately)
+            // Simulate progress to keep UI alive during synchronous wait
+            let fakeProgress = 30;
+            const progressTimer = setInterval(() => {
+                if (fakeProgress < 90) {
+                    fakeProgress += Math.random() * 5;
+                    this.updateProgress('Mengenali Wajah... (mohon tunggu)', fakeProgress);
+                }
+            }, 1000);
+
+            // Step 2: Run recognition synchronously - server will respond when done
             return fetch('/recognize', {
                 method: 'POST',
                 headers: {
@@ -293,15 +302,19 @@ const IndoLensHome = {
                 body: JSON.stringify({ video_token: videoToken })
             })
             .then(recResponse => {
-                if (recResponse.status !== 202 && !recResponse.ok) {
+                clearInterval(progressTimer);
+                if (!recResponse.ok) {
                     return recResponse.json().then(err => { throw new Error(err.message || 'Terjadi kesalahan saat pengenalan.'); });
                 }
                 return recResponse.json();
             })
             .then(recData => {
-                console.log('[IndoLens] Recognition Triggered (202 Accepted):', recData);
-                // Step 3: Poll status every 1 second
-                this.pollRecognitionStatus(videoToken);
+                console.log('[IndoLens] Recognition Complete:', recData);
+                this.receiveRecognition(recData);
+            })
+            .catch(err => {
+                clearInterval(progressTimer);
+                throw err;
             });
         })
         .catch(error => {
@@ -311,36 +324,6 @@ const IndoLensHome = {
             if (this.elements.uploadSection) this.elements.uploadSection.style.display = 'block';
             this.showToast(error.message || 'Gagal memproses video.', 'error');
         });
-    },
-
-    pollRecognitionStatus(token) {
-        if (this.pollTimer) clearInterval(this.pollTimer);
-
-        this.pollTimer = setInterval(() => {
-            fetch(`/recognition/status/${token}`, {
-                headers: { 'Accept': 'application/json' }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'processing') {
-                    this.updateProgress(data.stage || 'Memproses video...', data.progress || 0);
-                } else if (data.status === 'completed') {
-                    clearInterval(this.pollTimer);
-                    this.pollTimer = null;
-                    this.receiveRecognition(data);
-                } else if (data.status === 'error') {
-                    clearInterval(this.pollTimer);
-                    this.pollTimer = null;
-                    this.hideProgress();
-                    this.isProcessing = false;
-                    if (this.elements.uploadSection) this.elements.uploadSection.style.display = 'block';
-                    this.showToast(data.message || 'Proses pengenalan gagal.', 'error');
-                }
-            })
-            .catch(err => {
-                console.warn('[IndoLens] Status poll transient error:', err);
-            });
-        }, 1000);
     },
 
     receiveRecognition(data) {
@@ -360,15 +343,16 @@ const IndoLensHome = {
                              (data.data && (data.data.video_url || data.data.output_video));
             
             if (outputUrl) {
-                // If it's a full URL or absolute path, use it directly, otherwise build relative URL
                 const finalUrl = outputUrl.startsWith('http') || outputUrl.startsWith('/') 
                     ? outputUrl 
                     : `/results/${outputUrl.split(/[\/\\]/).pop()}`;
                 this.replaceVideo(finalUrl);
+                // Keep video paused - user clicks play manually
+                this.elements.mainVideo.pause();
             }
 
             this.replaceOverlay(data);
-            this.showToast('Pengenalan wajah selesai!', 'success');
+            this.showToast('Pengenalan wajah selesai! Klik Play untuk memutar.', 'success');
         }, 400);
     },
 
