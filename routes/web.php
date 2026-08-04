@@ -11,6 +11,7 @@ Route::post('/recognize', [RecognitionController::class, 'recognize']);
 Route::post('/reset', [RecognitionController::class, 'reset']);
 Route::get('/recognition/status/{token}', [RecognitionController::class, 'status']);
 Route::get('/result', [RecognitionController::class, 'result']);
+Route::get('/stream/video/{filename}', [RecognitionController::class, 'streamVideo']);
 
 Route::get('/actors', [ActorController::class, 'index']);
 Route::get('/actors/{id}', [ActorController::class, 'show']);

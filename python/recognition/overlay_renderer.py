@@ -72,9 +72,10 @@ def render_video(video_path, frames_detections, output_path=None, actor_metadata
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    # Use Media Foundation backend on Windows with H264 which is widely supported by browsers
-    fourcc = cv2.VideoWriter_fourcc(*"H264")
-    out = cv2.VideoWriter(str(output_path), cv2.CAP_MSMF, fourcc, fps, (width, height))
+    # Use safe mp4v codec for internal writing
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    temp_output_path = output_path.with_name(f"temp_{output_path.name}")
+    out = cv2.VideoWriter(str(temp_output_path), fourcc, fps, (width, height))
 
     # Index detections by frame number for fast lookup
     detection_map = {item["frame"]: item.get("detections", []) for item in frames_detections}
@@ -94,6 +95,39 @@ def render_video(video_path, frames_detections, output_path=None, actor_metadata
     finally:
         cap.release()
         out.release()
+
+    # Convert the temp output to H.264 using imageio_ffmpeg for browser compatibility
+    try:
+        import subprocess
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        
+        if output_path.exists():
+            output_path.unlink()
+            
+        cmd = [
+            ffmpeg_exe,
+            '-y',
+            '-i', str(temp_output_path),
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-crf', '22',
+            '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart',
+            str(output_path)
+        ]
+        
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        if temp_output_path.exists():
+            temp_output_path.unlink()
+            
+    except Exception as e:
+        # Fallback to the temp file if ffmpeg fails (though it might not play in browser)
+        if temp_output_path.exists():
+            if output_path.exists():
+                output_path.unlink()
+            temp_output_path.rename(output_path)
 
     return str(output_path.resolve())
 

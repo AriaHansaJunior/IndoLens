@@ -67,6 +67,21 @@ class RecognitionController extends Controller
     }
 
     /**
+     * Clear the video session and return to initial state.
+     */
+    public function reset(Request $request)
+    {
+        $request->session()->forget([
+            'current_video_token',
+            'current_video_url',
+            'recognized_actor_names',
+            'recognition_data'
+        ]);
+
+        return response()->json(['status' => 'success']);
+    }
+
+    /**
      * Execute recognition pipeline synchronously on previously uploaded video.
      * Returns full result JSON when Python finishes.
      */
@@ -224,6 +239,27 @@ class RecognitionController extends Controller
                 'message' => 'Recognition failed: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Stream video with support for HTTP Range requests (fixes scrubbing/seeking)
+     */
+    public function streamVideo($filename)
+    {
+        $path = public_path('results/' . basename($filename));
+        if (!file_exists($path)) {
+            // Check uploads folder if it's the raw video
+            $path = public_path('uploads/' . basename($filename));
+            if (!file_exists($path)) {
+                abort(404);
+            }
+        }
+        
+        return response()->file($path, [
+            'Content-Type' => 'video/mp4',
+            'Accept-Ranges' => 'bytes',
+            'Cache-Control' => 'no-cache, private'
+        ]);
     }
 
     /**

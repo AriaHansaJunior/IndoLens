@@ -190,6 +190,12 @@ const IndoLensHome = {
         if (this.elements.videoFallback) {
             this.elements.videoFallback.style.display = 'none';
         }
+        
+        // Fix: Make sure controls are shown so the timeline is visible!
+        if (this.currentMode !== 'demo') {
+            this.elements.mainVideo.controls = true;
+        }
+
         this.elements.mainVideo.style.display = 'block';
         this.elements.mainVideo.muted = true;
         this.elements.mainVideo.src = videoUrl;
@@ -205,6 +211,24 @@ const IndoLensHome = {
                 console.log('[IndoLens] [replaceVideo] video.play() SUCCESS!');
             }).catch(e => {
                 console.warn('[IndoLens] [replaceVideo] video.play() rejected:', e);
+            });
+        }
+        
+        // Add left/right keyboard scrubbing just in case browser controls don't capture it
+        if (!this._hasBoundVideoKeys) {
+            this._hasBoundVideoKeys = true;
+            document.addEventListener('keydown', (e) => {
+                if (this.currentMode === 'demo' || !this.elements.mainVideo) return;
+                // Ignore if typing in an input field
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+                if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    this.elements.mainVideo.currentTime = Math.min(this.elements.mainVideo.duration, this.elements.mainVideo.currentTime + 5);
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    this.elements.mainVideo.currentTime = Math.max(0, this.elements.mainVideo.currentTime - 5);
+                }
             });
         }
 
