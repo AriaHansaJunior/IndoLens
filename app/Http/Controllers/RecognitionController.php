@@ -42,7 +42,7 @@ class RecognitionController extends Controller
                 mkdir($publicUploadsDir, 0755, true);
             }
             copy($videoPath, $publicUploadsDir . '/' . $filename);
-            $videoUrl = asset('uploads/' . $filename);
+            $videoUrl = url('/stream/video/' . $filename);
 
             // Save uploaded video URL in session for page navigation persistence
             session([
@@ -211,7 +211,7 @@ class RecognitionController extends Controller
                     mkdir($publicResultsDir, 0755, true);
                 }
                 copy($outputVideoPath, $publicResultsDir . '/' . $filename);
-                $videoUrl = asset('results/' . $filename);
+                $videoUrl = url('/stream/video/' . $filename);
             }
 
             $finalData = [
