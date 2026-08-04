@@ -158,8 +158,9 @@ def recognize_video(video_path, all_actor_embeddings=None, threshold=FACE_DISTAN
                             "video_url": None,
                             "actors": []
                         }, f, indent=2)
-                except Exception:
-                    pass
+                except Exception as err:
+                    from utils.logger import log_error
+                    log_error(f"Failed to update progress JSON: {err}")
 
             frame_number += 1
 

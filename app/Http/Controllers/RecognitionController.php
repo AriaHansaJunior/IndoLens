@@ -82,8 +82,9 @@ class RecognitionController extends Controller
     }
 
     /**
-     * Execute recognition pipeline synchronously on previously uploaded video.
-     * Returns full result JSON when Python finishes.
+    /**
+     * Execute recognition pipeline asynchronously on previously uploaded video.
+     * Returns 202 Accepted immediately and starts Python process in background.
      */
     public function recognize(Request $request)
     {
@@ -111,134 +112,204 @@ class RecognitionController extends Controller
         }
 
         try {
-            // Prevent PHP from timing out during long recognition
-            set_time_limit(0);
-            ini_set('max_execution_time', 0);
+            $resultsDir = config('recognition.result_path', storage_path('app/ai/results'));
+            if (!file_exists($resultsDir)) {
+                mkdir($resultsDir, 0755, true);
+            }
 
-            // Run Python recognition synchronously (waits until done)
-            $result = $this->recognitionService->recognizeVideo($videoPath);
+            $statusFilePath = $resultsDir . '/' . pathinfo(basename($videoToken), PATHINFO_FILENAME) . '.json';
 
-            // Check total faces detected across all frames
-            $totalDetections = 0;
-            $hasUnknownFaces = false;
-            
-            $recognizedNames = [];
-            $frames = $result['data']['frames'] ?? [];
-            foreach ($frames as $frame) {
-                $dets = $frame['detections'] ?? [];
-                $totalDetections += count($dets);
+            // Write initial processing status JSON
+            file_put_contents($statusFilePath, json_encode([
+                'status' => 'processing',
+                'progress' => 0,
+                'stage' => 'Initializing Recognition...',
+                'video_url' => null,
+                'actors' => []
+            ], JSON_PRETTY_PRINT));
+
+            // Metadata to pass to Python
+            $actorMetadata = [
+                'status_file_path' => $statusFilePath
+            ];
+
+            // Trigger background recognition
+            $this->recognitionService->startBackgroundRecognition($videoPath, $actorMetadata);
+
+            return response()->json([
+                'status' => 'processing',
+                'message' => 'Recognition started in background.',
+                'video_token' => $videoToken,
+                'status_file' => basename($statusFilePath)
+            ], 202);
+        } catch (Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Recognition trigger error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to trigger recognition: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get real-time status of async recognition process.
+     */
+    public function status($token)
+    {
+        $resultsDir = config('recognition.result_path', storage_path('app/ai/results'));
+        $statusFilePath = $resultsDir . '/' . pathinfo(basename($token), PATHINFO_FILENAME) . '.json';
+
+        if (!file_exists($statusFilePath)) {
+            return response()->json([
+                'status' => 'processing',
+                'progress' => 0,
+                'stage' => 'Initializing...',
+                'video_url' => null,
+                'actors' => []
+            ]);
+        }
+
+        $content = file_get_contents($statusFilePath);
+        $statusData = json_decode($content, true);
+
+        if (!$statusData) {
+            return response()->json([
+                'status' => 'processing',
+                'progress' => 0,
+                'stage' => 'Reading status...',
+                'video_url' => null,
+                'actors' => []
+            ]);
+        }
+
+        // If Python finished and wrote python_result
+        if (isset($statusData['python_result'])) {
+            $result = $statusData['python_result'];
+
+            // Process enrichment if not already enriched
+            if (!isset($statusData['enriched_data'])) {
+                // Check total faces detected across all frames
+                $totalDetections = 0;
+                $hasUnknownFaces = false;
+                $recognizedNames = [];
+                $frames = $result['data']['frames'] ?? [];
                 
-                foreach ($dets as $det) {
-                    $status = $det['status'] ?? 'unknown';
-                    $actor = $det['actor'] ?? 'unknown';
-                    if ($status === 'known' && $actor !== 'unknown' && $actor !== 'Tidak Dikenali') {
-                        $normalized = ucwords(str_replace('_', ' ', $actor));
-                        $recognizedNames[] = $normalized;
+                foreach ($frames as $frame) {
+                    $dets = $frame['detections'] ?? [];
+                    $totalDetections += count($dets);
+                    
+                    foreach ($dets as $det) {
+                        $status = $det['status'] ?? 'unknown';
+                        $actor = $det['actor'] ?? 'unknown';
+                        if ($status === 'known' && $actor !== 'unknown' && $actor !== 'Tidak Dikenali') {
+                            $normalized = ucwords(str_replace('_', ' ', $actor));
+                            $recognizedNames[] = $normalized;
 
-                        if (strtolower($actor) === 'bayu_eko_moektito' || strtolower($normalized) === 'bayu eko moektito') {
-                            $recognizedNames[] = 'Bayu Skak';
+                            if (strtolower($actor) === 'bayu_eko_moektito' || strtolower($normalized) === 'bayu eko moektito') {
+                                $recognizedNames[] = 'Bayu Skak';
+                            }
+                        } else {
+                            $hasUnknownFaces = true;
                         }
-                    } else {
-                        $hasUnknownFaces = true;
                     }
                 }
-            }
 
-            if ($totalDetections === 0) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Tidak ada muka manusia dalam video ini.',
-                ], 400);
-            }
-
-            $recognizedNames = array_values(array_unique($recognizedNames));
-
-            // Enrich actors data for frontend pause overlay
-            $enrichedActors = [];
-            if (!empty($recognizedNames)) {
-                $dbActors = \App\Models\Actor::whereIn('full_name', $recognizedNames)->with('characters.movie')->get();
-                foreach ($dbActors as $dbActor) {
-                    $characterName = $dbActor->characters->first() ? $dbActor->characters->first()->character_name : null;
-                    
-                    $filmography = [];
-                    foreach ($dbActor->characters as $char) {
-                        if ($char->movie) {
-                            $filmography[] = $char->movie->title;
-                        }
-                    }
-                    
-                    $enrichedActors[] = [
-                        'id' => $dbActor->id,
-                        'name' => $dbActor->full_name,
-                        'character' => $characterName,
-                        'age' => $dbActor->age,
-                        'filmography' => array_values(array_unique($filmography))
+                if ($totalDetections === 0) {
+                    $errorData = [
+                        'status' => 'error',
+                        'message' => 'Tidak ada muka manusia dalam video ini.'
                     ];
+                    file_put_contents($statusFilePath, json_encode($errorData, JSON_PRETTY_PRINT));
+                    return response()->json($errorData, 400);
                 }
-            }
 
-            // Fallback if no actors matched in DB but detection returned names
-            if (empty($enrichedActors) && !empty($recognizedNames)) {
-                foreach ($recognizedNames as $idx => $name) {
+                $recognizedNames = array_values(array_unique($recognizedNames));
+
+                $enrichedActors = [];
+                if (!empty($recognizedNames)) {
+                    $dbActors = \App\Models\Actor::whereIn('full_name', $recognizedNames)->with('characters.movie')->get();
+                    foreach ($dbActors as $dbActor) {
+                        $characterName = $dbActor->characters->first() ? $dbActor->characters->first()->character_name : null;
+                        
+                        $filmography = [];
+                        foreach ($dbActor->characters as $char) {
+                            if ($char->movie) {
+                                $filmography[] = $char->movie->title;
+                            }
+                        }
+                        
+                        $enrichedActors[] = [
+                            'id' => $dbActor->id,
+                            'name' => $dbActor->full_name,
+                            'character' => $characterName,
+                            'age' => $dbActor->age,
+                            'filmography' => array_values(array_unique($filmography))
+                        ];
+                    }
+                }
+
+                if (empty($enrichedActors) && !empty($recognizedNames)) {
+                    foreach ($recognizedNames as $idx => $name) {
+                        $enrichedActors[] = [
+                            'id' => $idx + 1,
+                            'name' => $name,
+                            'character' => 'Unknown',
+                            'age' => 'Unknown',
+                            'filmography' => []
+                        ];
+                    }
+                }
+
+                if (empty($enrichedActors) && $hasUnknownFaces) {
                     $enrichedActors[] = [
-                        'id' => $idx + 1,
-                        'name' => $name,
-                        'character' => 'Unknown',
-                        'age' => 'Unknown',
+                        'id' => 999,
+                        'name' => 'Wajah tidak dikenali',
+                        'character' => '',
+                        'age' => '',
                         'filmography' => []
                     ];
                 }
-            }
 
-            // Fallback if no known faces at all but faces exist
-            if (empty($enrichedActors) && $hasUnknownFaces) {
-                $enrichedActors[] = [
-                    'id' => 999,
-                    'name' => 'Wajah tidak dikenali',
-                    'character' => '',
-                    'age' => '',
-                    'filmography' => []
-                ];
-            }
-
-            // Copy overlay video to public/results/
-            $outputVideoPath = $result['data']['output_video'] ?? null;
-            $videoUrl = null;
-            if ($outputVideoPath && file_exists($outputVideoPath)) {
-                $filename = basename($outputVideoPath);
-                $publicResultsDir = public_path('results');
-                if (!file_exists($publicResultsDir)) {
-                    mkdir($publicResultsDir, 0755, true);
+                $outputVideoPath = $result['data']['output_video'] ?? null;
+                $videoUrl = null;
+                if ($outputVideoPath && file_exists($outputVideoPath)) {
+                    $filename = basename($outputVideoPath);
+                    $publicResultsDir = public_path('results');
+                    if (!file_exists($publicResultsDir)) {
+                        mkdir($publicResultsDir, 0755, true);
+                    }
+                    copy($outputVideoPath, $publicResultsDir . '/' . $filename);
+                    $videoUrl = url('/stream/video/' . $filename);
                 }
-                copy($outputVideoPath, $publicResultsDir . '/' . $filename);
-                $videoUrl = url('/stream/video/' . $filename);
+
+                $finalData = [
+                    'status' => 'completed',
+                    'progress' => 100,
+                    'stage' => 'Completed',
+                    'video_url' => $videoUrl,
+                    'actors' => $enrichedActors,
+                    'data' => $result['data'] ?? []
+                ];
+
+                session([
+                    'current_video_token' => $token,
+                    'current_video_url' => $videoUrl,
+                    'recognized_actor_names' => $recognizedNames,
+                    'recognition_data' => $finalData
+                ]);
+
+                // Save enriched data back to JSON so subsequent polling hits instant response
+                $statusData['enriched_data'] = $finalData;
+                $statusData['status'] = 'completed';
+                file_put_contents($statusFilePath, json_encode($statusData, JSON_PRETTY_PRINT));
+
+                return response()->json($finalData);
+            } else {
+                return response()->json($statusData['enriched_data']);
             }
-
-            $finalData = [
-                'status' => 'completed',
-                'progress' => 100,
-                'stage' => 'Completed',
-                'video_url' => $videoUrl,
-                'actors' => $enrichedActors,
-                'data' => $result['data'] ?? []
-            ];
-
-            // Persist session state so video survives page navigation
-            session([
-                'current_video_token' => $videoToken,
-                'current_video_url' => $videoUrl,
-                'recognized_actor_names' => $recognizedNames,
-                'recognition_data' => $finalData
-            ]);
-
-            return response()->json($finalData);
-        } catch (Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Recognition error: ' . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Recognition failed: ' . $e->getMessage(),
-            ], 500);
         }
+
+        return response()->json($statusData);
     }
 
     /**

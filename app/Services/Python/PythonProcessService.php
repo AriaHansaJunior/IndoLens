@@ -17,7 +17,12 @@ class PythonProcessService
     {
         $args = [$videoPath];
         if (!empty($actorMetadata)) {
-            $args[] = json_encode($actorMetadata);
+            $metaPath = storage_path('app/ai/temp/' . uniqid('meta_') . '.json');
+            if (!file_exists(dirname($metaPath))) {
+                mkdir(dirname($metaPath), 0755, true);
+            }
+            file_put_contents($metaPath, json_encode($actorMetadata));
+            $args[] = $metaPath;
         }
 
         return $this->runCommand('recognize-video', $args);
@@ -30,12 +35,18 @@ class PythonProcessService
     {
         $args = [$videoPath];
         if (!empty($actorMetadata)) {
-            $args[] = json_encode($actorMetadata);
+            $metaPath = storage_path('app/ai/temp/' . uniqid('meta_') . '.json');
+            if (!file_exists(dirname($metaPath))) {
+                mkdir(dirname($metaPath), 0755, true);
+            }
+            file_put_contents($metaPath, json_encode($actorMetadata));
+            $args[] = $metaPath;
         }
 
         $cmd = $this->buildCommand('recognize-video', $args);
 
         $escapedCmd = array_map('escapeshellarg', $cmd);
+        $escapedCmd[0] = escapeshellcmd($cmd[0]); // Don't use escapeshellarg on executable for Windows start command
         $cmdStr = implode(' ', $escapedCmd);
 
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {

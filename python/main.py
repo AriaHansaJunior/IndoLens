@@ -165,14 +165,15 @@ def main():
             # Optional Metadata Injection passed from Laravel (LOCK 26 & 28)
             actor_metadata = None
             if len(sys.argv) > 3:
-                raw_meta = sys.argv[3]
+                raw_meta = sys.argv[3].strip('"').strip("'")
                 try:
                     if Path(raw_meta).exists():
                         with open(raw_meta, "r", encoding="utf-8") as f:
                             actor_metadata = json.load(f)
                     else:
                         actor_metadata = json.loads(raw_meta)
-                except Exception:
+                except Exception as err:
+                    log_error(f"Failed to parse metadata: {err}")
                     actor_metadata = None
 
             status_file_path = actor_metadata.get("status_file_path") if isinstance(actor_metadata, dict) else None
