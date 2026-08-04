@@ -11,8 +11,8 @@ class Character extends Model
     use HasFactory;
 
     protected $fillable = [
-        'actor_name',
-        'movie_title',
+        'actor_id',
+        'movie_id',
         'character_name',
     ];
 
@@ -21,7 +21,7 @@ class Character extends Model
      */
     public function actor(): BelongsTo
     {
-        return $this->belongsTo(Actor::class, 'actor_name', 'full_name');
+        return $this->belongsTo(Actor::class, 'actor_id');
     }
 
     /**
@@ -29,6 +29,6 @@ class Character extends Model
      */
     public function movie(): BelongsTo
     {
-        return $this->belongsTo(Movie::class, 'movie_title', 'title');
+        return $this->belongsTo(Movie::class, 'movie_id');
     }
 }

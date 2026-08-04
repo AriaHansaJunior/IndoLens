@@ -10,25 +10,25 @@ use Illuminate\Support\Collection;
 class ActorService
 {
     /**
-     * Get actor detail by ID with characters and aliases.
+     * Get actor detail by ID with characters and associated movie.
      */
     public function getActorDetail($id): Actor
     {
-        return Actor::with(['characters', 'aliases', 'images'])->findOrFail($id);
+        return Actor::with(['characters.movie'])->findOrFail($id);
     }
 
     /**
      * Get character played by an actor.
      */
-    public function getCharacter(Actor $actor, $movieTitle = null): ?Character
+    public function getCharacter(Actor $actor, $movieId = null): ?Character
     {
-        if ($movieTitle) {
-            return Character::where('actor_name', $actor->full_name)
-                ->where('movie_title', $movieTitle)
+        if ($movieId) {
+            return Character::where('actor_id', $actor->id)
+                ->where('movie_id', $movieId)
                 ->first();
         }
 
-        return Character::where('actor_name', $actor->full_name)->first();
+        return Character::where('actor_id', $actor->id)->first();
     }
 
     /**
@@ -36,9 +36,9 @@ class ActorService
      */
     public function getMovies(Actor $actor): Collection
     {
-        $movieTitles = Character::where('actor_name', $actor->full_name)
-            ->pluck('movie_title');
+        $movieIds = Character::where('actor_id', $actor->id)
+            ->pluck('movie_id');
 
-        return Movie::whereIn('title', $movieTitles)->get();
+        return Movie::whereIn('id', $movieIds)->get();
     }
 }

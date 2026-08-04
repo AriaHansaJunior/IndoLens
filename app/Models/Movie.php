@@ -25,7 +25,7 @@ class Movie extends Model
      */
     public function characters(): HasMany
     {
-        return $this->hasMany(Character::class);
+        return $this->hasMany(Character::class, 'movie_id');
     }
 
     /**

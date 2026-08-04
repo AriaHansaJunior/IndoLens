@@ -28,22 +28,6 @@ class Actor extends Model
      */
     public function characters(): HasMany
     {
-        return $this->hasMany(Character::class, 'actor_name', 'full_name');
-    }
-
-    /**
-     * Get aliases for the actor.
-     */
-    public function aliases(): HasMany
-    {
-        return $this->hasMany(ActorAlias::class, 'actor_name', 'full_name');
-    }
-
-    /**
-     * Get FaceNet dataset images for the actor.
-     */
-    public function images(): HasMany
-    {
-        return $this->hasMany(ActorImage::class, 'actor_name', 'full_name');
+        return $this->hasMany(Character::class, 'actor_id');
     }
 }

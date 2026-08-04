@@ -15,14 +15,14 @@ class CharacterSeeder extends Seeder
         $characters = [
             [
                 'id' => 1,
-                'actor_name' => 'Bayu Skak',
-                'movie_title' => 'Yowis Ben',
+                'actor_id' => 1,
+                'movie_id' => 1,
                 'character_name' => 'Bayu',
             ],
             [
                 'id' => 2,
-                'actor_name' => 'Bayu Skak',
-                'movie_title' => 'Sekawan Limo',
+                'actor_id' => 1,
+                'movie_id' => 2,
                 'character_name' => 'Bagus',
             ]
         ];
