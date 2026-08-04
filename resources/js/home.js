@@ -173,7 +173,6 @@ const IndoLensHome = {
         this.elements.mainVideo.style.display = 'block';
         this.elements.mainVideo.muted = true;
         this.elements.mainVideo.src = videoUrl;
-        this.elements.mainVideo.loop = true;
         
         console.log('[IndoLens] [replaceVideo] src AFTER:', this.elements.mainVideo.src);
 

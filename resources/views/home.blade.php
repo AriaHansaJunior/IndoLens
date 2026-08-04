@@ -9,7 +9,7 @@
 <!-- Video Player Section -->
 <div class="video-section">
     <div class="video-wrapper" id="videoWrapper">
-        <video id="mainVideo" class="video-element" playsinline muted loop style="{{ $hasActiveVideo ? 'display: block;' : 'display: none;' }}"></video>
+        <video id="mainVideo" class="video-element" playsinline muted controls style="{{ $hasActiveVideo ? 'display: block;' : 'display: none;' }}"></video>
         
         <!-- Video Fallback State if demo video is missing -->
         <div id="videoFallback" class="video-fallback-state" style="{{ $hasActiveVideo ? 'display: none;' : 'display: flex;' }}">
