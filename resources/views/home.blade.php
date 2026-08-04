@@ -9,10 +9,10 @@
 <!-- Video Player Section -->
 <div class="video-section">
     <div class="video-wrapper" id="videoWrapper">
-        <video id="mainVideo" class="video-element" playsinline muted loop></video>
+        <video id="mainVideo" class="video-element" playsinline muted loop style="{{ $hasActiveVideo ? 'display: block;' : 'display: none;' }}"></video>
         
         <!-- Video Fallback State if demo video is missing -->
-        <div id="videoFallback" class="video-fallback-state" style="display: none;">
+        <div id="videoFallback" class="video-fallback-state" style="{{ $hasActiveVideo ? 'display: none;' : 'display: flex;' }}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
             </svg>
@@ -35,8 +35,8 @@
     </div>
 </div>
 
-<!-- Upload Area Section -->
-<div class="upload-section">
+<!-- Upload Area Section (Hidden when a video is already active) -->
+<div class="upload-section" id="uploadSection" style="{{ $hasActiveVideo ? 'display: none;' : 'display: block;' }}">
     <div class="upload-card" id="uploadCard">
         <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" stroke-linecap="round" stroke-linejoin="round"/>
@@ -44,9 +44,11 @@
         <div class="upload-title">Upload Movie Clip</div>
         <div class="upload-subtitle">Drag & Drop atau <strong>Browse Video</strong></div>
         <div class="upload-formats">Format yang didukung: MP4, MOV, AVI, MKV</div>
-        <input type="file" id="fileInput" class="hidden-file-input" accept=".mp4,.mov,.avi,.mkv">
     </div>
 </div>
+
+<!-- Hidden File Input (Always in DOM) -->
+<input type="file" id="fileInput" class="hidden-file-input" accept=".mp4,.mov,.avi,.mkv" style="display: none;">
 
 <!-- Progress Status Section -->
 <div class="progress-container" id="progressContainer">
@@ -70,6 +72,22 @@
         </svg>
         Actor List
     </a>
+
+    <!-- Upload Video Baru Button (Shown when active video exists) -->
+    <button type="button" id="btnUploadNew" class="btn btn-secondary" style="{{ $hasActiveVideo ? 'display: inline-flex;' : 'display: none;' }}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+        </svg>
+        Upload Video Baru
+    </button>
 </div>
+
+<script>
+    window.INDO_LENS_CONFIG = {
+        currentVideoUrl: @json($currentVideoUrl),
+        hasActiveVideo: @json($hasActiveVideo),
+        recognitionData: @json($recognitionData)
+    };
+</script>
 
 @endsection

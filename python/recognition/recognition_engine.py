@@ -1,5 +1,6 @@
 import sys
 import time
+import json
 from pathlib import Path
 import numpy as np
 
@@ -7,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from config.config import FACE_DISTANCE_THRESHOLD
+from config.config import FACE_DISTANCE_THRESHOLD, FRAME_SAMPLE_RATE, MIN_FACE_CONFIDENCE
 from facenet.embedding_generator import generate_embedding
 from yolo.detector import load_model as yolo_load_model, predict_frame as yolo_predict_frame
 from yolo.video_processor import open_video, read_frame, release_video
@@ -78,7 +79,10 @@ def recognize_frame(frame, all_actor_embeddings=None, threshold=FACE_DISTANCE_TH
 
     for det in yolo_dets:
         crop_img = det.get("crop")
-        if crop_img is None or not isinstance(crop_img, np.ndarray) or crop_img.size == 0:
+        conf = det.get("confidence", 0.0)
+
+        # Skip FaceNet embedding computation for low confidence detections
+        if conf < MIN_FACE_CONFIDENCE or crop_img is None or not isinstance(crop_img, np.ndarray) or crop_img.size == 0:
             rec_res = {
                 "actor": "Tidak Dikenali",
                 "distance": 999.0,
@@ -98,18 +102,17 @@ def recognize_frame(frame, all_actor_embeddings=None, threshold=FACE_DISTANCE_TH
     return frame_detections
 
 
-def recognize_video(video_path, all_actor_embeddings=None, threshold=FACE_DISTANCE_THRESHOLD):
+def recognize_video(video_path, all_actor_embeddings=None, threshold=FACE_DISTANCE_THRESHOLD, sample_rate=FRAME_SAMPLE_RATE, status_file_path=None):
     """
-    Process video end-to-end for face detection and actor recognition frame-by-frame.
+    Process video using Frame Sampling for face detection and actor recognition.
     
-    LOCK 3: Stateless Recognition - Tidak menggunakan tracking.
-    LOCK 4: Pipeline YOLO -> Crop -> FaceNet -> Euclidean -> Known / Unknown.
-    LOCK 7: Compare against ALL embeddings.
-    LOCK 8: Recognition tidak membaca MySQL.
+    LOCK 3: Pure Frame Sampling - Bounding box murni berasal dari hasil inferensi YOLO yang sesungguhnya.
     
     :param video_path: Path or str path to video file
     :param all_actor_embeddings: pre-loaded reference embeddings dict
     :param threshold: float distance threshold
+    :param sample_rate: int process 1 frame every N frames
+    :param status_file_path: optional path to write progress JSON file
     :return: dict formatted JSON response conforming to Session 5 contract
     """
     # Load reference actor embeddings ONCE before video processing loop
@@ -132,12 +135,32 @@ def recognize_video(video_path, all_actor_embeddings=None, threshold=FACE_DISTAN
             if not ret or frame is None:
                 break
 
-            dets = recognize_frame(frame, all_actor_embeddings=all_actor_embeddings, threshold=threshold)
+            # Frame Sampling: Only execute YOLO & FaceNet on sampled frames
+            if sample_rate <= 1 or (frame_number - 1) % sample_rate == 0:
+                dets = recognize_frame(frame, all_actor_embeddings=all_actor_embeddings, threshold=threshold)
+            else:
+                dets = []
             
             frames_output.append({
                 "frame": frame_number,
                 "detections": dets
             })
+
+            # Update progress file periodically
+            if status_file_path and total_frames and total_frames > 0 and (frame_number % 15 == 0 or frame_number == total_frames):
+                pct = int((frame_number / total_frames) * 75) # Reserve last 25% for video overlay rendering
+                try:
+                    with open(status_file_path, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "status": "processing",
+                            "progress": min(pct, 75),
+                            "stage": f"Recognizing Faces ({frame_number}/{total_frames})",
+                            "video_url": None,
+                            "actors": []
+                        }, f, indent=2)
+                except Exception:
+                    pass
+
             frame_number += 1
 
     finally:

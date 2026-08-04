@@ -65,13 +65,13 @@
                     <div class="section-title">Tautan Luar</div>
                     <div class="biography-content" style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
                         @if($actor->instagram)
-                            <a href="{{ $actor->instagram }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Instagram</a>
+                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->instagram, ['http://', 'https://']) ? $actor->instagram : 'https://' . $actor->instagram }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Instagram</a>
                         @endif
                         @if($actor->wikipedia)
-                            <a href="{{ $actor->wikipedia }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Wikipedia</a>
+                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->wikipedia, ['http://', 'https://']) ? $actor->wikipedia : 'https://' . $actor->wikipedia }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Wikipedia</a>
                         @endif
                         @if($actor->imdb)
-                            <a href="{{ $actor->imdb }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">IMDb</a>
+                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->imdb, ['http://', 'https://']) ? $actor->imdb : 'https://' . $actor->imdb }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">IMDb</a>
                         @endif
                     </div>
                 </div>

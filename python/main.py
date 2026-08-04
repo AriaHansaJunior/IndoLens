@@ -11,6 +11,9 @@ if str(BASE_DIR) not in sys.path:
 from utils.logger import initialize_logger, log_info, log_success, log_warning, log_error, log_execution
 from utils.exception import handle_exception, handle_model_error, handle_video_error, handle_dataset_error, IndoLensException
 from utils.validator import validate_video, validate_dataset, validate_output
+from utils.dataset_loader import load_dataset
+from config.dataset import EMBEDDING_PATH
+from facenet.embedding_generator import generate_embedding, save_embedding
 from recognition.recognition_engine import recognize_video
 from recognition.overlay_renderer import render_video
 
@@ -158,7 +161,7 @@ def main():
         elif command == "recognize-video":
             video_input = sys.argv[2] if len(sys.argv) > 2 else ""
             validate_video(video_input)
-            
+
             # Optional Metadata Injection passed from Laravel (LOCK 26 & 28)
             actor_metadata = None
             if len(sys.argv) > 3:
@@ -172,24 +175,54 @@ def main():
                 except Exception:
                     actor_metadata = None
 
+            status_file_path = actor_metadata.get("status_file_path") if isinstance(actor_metadata, dict) else None
+
             # 1. Recognize via AI Core (LOCK 27: Pure Recognition)
-            res = recognize_video(video_input)
-            
+            res = recognize_video(video_input, status_file_path=status_file_path)
+
+            if status_file_path:
+                try:
+                    with open(status_file_path, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "status": "processing",
+                            "progress": 85,
+                            "stage": "Rendering Video Overlay...",
+                            "video_url": None,
+                            "actors": []
+                        }, f, indent=2)
+                except Exception:
+                    pass
+
             # 2. Extract Detections
             frames_data = res.get("data", {}).get("frames", [])
-            
+
             # 3. Render Video with Metadata Overlay (LOCK 28)
             output_video_path = render_video(video_input, frames_data, actor_metadata=actor_metadata)
-            
+
             # 4. Inject Output Video Path & Metadata to JSON response
             if "data" in res and isinstance(res["data"], dict):
                 res["data"]["output_video"] = output_video_path
                 if actor_metadata:
                     res["data"]["actor_metadata"] = actor_metadata
 
-            # 5. Return JSON Single Source of Truth
+            # 5. Return JSON Single Source of Truth & write finalizing status
             elapsed = time.time() - start_time
             log_success(f"Recognition completed for video '{video_input}' in {elapsed:.2f}s.")
+
+            if status_file_path:
+                try:
+                    with open(status_file_path, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "status": "finalizing",
+                            "progress": 100,
+                            "stage": "Completed",
+                            "video_url": None,
+                            "actors": [],
+                            "python_result": res
+                        }, f, indent=2)
+                except Exception as err:
+                    log_error(f"Failed to write final status JSON: {err}")
+
             print(json.dumps(res, indent=2))
 
         elif command == "recognize-frame":
@@ -214,21 +247,27 @@ def main():
             }
             print(format_json_response("initialized", "process-video", "Video processor initialized.", data))
 
-    except IndoLensException as err:
-        log_error(f"IndoLensException: {err.message}")
-        print(format_json_response("error", command, err.message, {"code": err.code}))
-        sys.exit(2)
-    except ValueError as err:
-        log_error(f"ValueError: {str(err)}")
-        print(format_json_response("error", command, str(err), {}))
-        sys.exit(2)
-    except FileNotFoundError as err:
-        log_error(f"FileNotFoundError: {str(err)}")
-        print(format_json_response("error", command, str(err), {}))
-        sys.exit(2)
     except Exception as err:
         log_error(f"Exception: {str(err)}")
         err_str = str(err)
+
+        # Write error status to file if status_file_path was provided
+        try:
+            if len(sys.argv) > 3:
+                raw_meta = sys.argv[3]
+                meta_dict = json.loads(raw_meta) if not Path(raw_meta).exists() else json.load(open(raw_meta, 'r', encoding='utf-8'))
+                sf_path = meta_dict.get("status_file_path")
+                if sf_path:
+                    with open(sf_path, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "status": "error",
+                            "progress": 0,
+                            "stage": "Error occurred",
+                            "message": err_str
+                        }, f, indent=2)
+        except Exception:
+            pass
+
         exit_code = 3 if ("model" in err_str.lower() or "torch" in err_str.lower() or "yolo" in err_str.lower() or "facenet" in err_str.lower()) else 1
         print(format_json_response("error", command, err_str, {}))
         sys.exit(exit_code)

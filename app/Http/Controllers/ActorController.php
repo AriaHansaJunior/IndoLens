@@ -22,9 +22,9 @@ class ActorController extends Controller
     {
         $recognizedNames = session('recognized_actor_names', []);
         
-        $actors = Actor::whereIn('full_name', $recognizedNames)
-            ->orderBy('full_name', 'asc')
-            ->get();
+        $actors = !empty($recognizedNames)
+            ? Actor::whereIn('full_name', $recognizedNames)->orderBy('full_name', 'asc')->get()
+            : collect();
 
         return view('actors.index', [
             'actors' => $actors,

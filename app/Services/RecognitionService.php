@@ -33,6 +33,14 @@ class RecognitionService
     }
 
     /**
+     * Start video recognition asynchronously in background.
+     */
+    public function startBackgroundRecognition(string $videoPath, array $actorMetadata = []): void
+    {
+        $this->pythonProcessService->runBackgroundRecognition($videoPath, $actorMetadata);
+    }
+
+    /**
      * Store uploaded video temporarily for Python processing.
      */
     public function storeTemporaryVideo(UploadedFile $file): string

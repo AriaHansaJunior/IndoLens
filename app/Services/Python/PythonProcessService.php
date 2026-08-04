@@ -24,6 +24,33 @@ class PythonProcessService
     }
 
     /**
+     * Run recognition command asynchronously in background.
+     */
+    public function runBackgroundRecognition(string $videoPath, array $actorMetadata = []): void
+    {
+        $args = [$videoPath];
+        if (!empty($actorMetadata)) {
+            $args[] = json_encode($actorMetadata);
+        }
+
+        $cmd = $this->buildCommand('recognize-video', $args);
+
+        $escapedCmd = array_map('escapeshellarg', $cmd);
+        $cmdStr = implode(' ', $escapedCmd);
+
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Include environment variables that might be missing in Laragon's shell
+            $userProfile = getenv('USERPROFILE') ?: 'C:\Users\MATIUS AHJ';
+            $logFile = storage_path('logs/python_bg.log');
+            $bgCmd = 'set "USERPROFILE=' . $userProfile . '" && start /B "" ' . $cmdStr . ' > "' . $logFile . '" 2>&1';
+            pclose(popen($bgCmd, 'r'));
+        } else {
+            $bgCmd = $cmdStr . ' > /dev/null 2>&1 &';
+            exec($bgCmd);
+        }
+    }
+
+    /**
      * Run generic python command with arguments.
      */
     public function runCommand(string $command, array $arguments = []): array
@@ -63,11 +90,20 @@ class PythonProcessService
         $systemRoot = getenv('SystemRoot') ?: (getenv('SYSTEMROOT') ?: 'C:\\Windows');
         $path = getenv('PATH') ?: getenv('Path');
 
+        $userProfile = getenv('USERPROFILE');
+        $homeDrive = getenv('HOMEDRIVE');
+        $homePath = getenv('HOMEPATH');
+
+        $timeout = config('recognition.process_timeout', 0);
+
         $result = Process::env([
             'SystemRoot' => $systemRoot,
             'SYSTEMROOT' => $systemRoot,
             'PATH' => $path,
-        ])->run($command);
+            'USERPROFILE' => $userProfile,
+            'HOMEDRIVE' => $homeDrive,
+            'HOMEPATH' => $homePath,
+        ])->timeout($timeout)->run($command);
         $this->lastResult = $result;
 
         $output = $this->captureOutput();

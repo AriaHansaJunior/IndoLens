@@ -11,20 +11,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    @hasSection('assets')
-        @yield('assets')
-    @else
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @endif
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @yield('assets')
 </head>
 <body>
 
     <div class="app-container">
         <!-- App Header -->
         <header class="app-header">
-            <div class="logo-badge" title="Face Detection & Recognition System">
-                FD
-            </div>
+            <a href="/" class="brand-logo-link" title="IndoLens — Face Detection & Recognition System">
+                <div class="logo-badge">FD</div>
+                <span class="brand-name">IndoLens</span>
+            </a>
         </header>
 
         <!-- Main View Content -->

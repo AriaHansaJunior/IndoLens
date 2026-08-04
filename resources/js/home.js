@@ -40,6 +40,7 @@ const IndoLensHome = {
             pausePanel: document.getElementById('pauseMetadataPanel'),
             
             // Upload
+            uploadSection: document.getElementById('uploadSection'),
             uploadCard: document.getElementById('uploadCard'),
             fileInput: document.getElementById('fileInput'),
             
@@ -50,6 +51,7 @@ const IndoLensHome = {
             
             // Buttons
             btnActorList: document.getElementById('btnActorList'),
+            btnUploadNew: document.getElementById('btnUploadNew'),
             
             // Toast
             toastContainer: document.getElementById('toastContainer'),
@@ -86,6 +88,14 @@ const IndoLensHome = {
             });
         }
 
+        if (this.elements.btnUploadNew) {
+            this.elements.btnUploadNew.addEventListener('click', () => {
+                if (!this.isProcessing && this.elements.fileInput) {
+                    this.elements.fileInput.click();
+                }
+            });
+        }
+
         if (this.elements.fileInput) {
             this.elements.fileInput.addEventListener('change', (e) => {
                 if (e.target.files.length > 0) {
@@ -114,7 +124,16 @@ const IndoLensHome = {
        ========================================================================= */
 
     initializeVideo() {
-        this.playDemo();
+        const config = window.INDO_LENS_CONFIG || {};
+        if (config.hasActiveVideo && config.currentVideoUrl) {
+            this.currentMode = 'user';
+            this.replaceVideo(config.currentVideoUrl);
+            if (config.recognitionData) {
+                this.receiveRecognition(config.recognitionData);
+            }
+        } else {
+            this.playDemo();
+        }
     },
 
     playDemo() {
@@ -137,12 +156,38 @@ const IndoLensHome = {
     },
 
     replaceVideo(videoUrl) {
+        console.log('[IndoLens] [replaceVideo] Called');
+        console.log('[IndoLens] [replaceVideo] Received URL:', videoUrl);
+        console.log('[IndoLens] [replaceVideo] videoElement:', this.elements.mainVideo);
+        console.log('[IndoLens] [replaceVideo] src BEFORE:', this.elements.mainVideo ? this.elements.mainVideo.src : 'NULL');
+
+        if (!this.elements.mainVideo) {
+            console.error('[IndoLens] [replaceVideo] ERROR: #mainVideo element not found in DOM!');
+            return;
+        }
+
         this.elements.mainVideo.classList.add('video-crossfade');
-        this.elements.videoFallback.style.display = 'none';
+        if (this.elements.videoFallback) {
+            this.elements.videoFallback.style.display = 'none';
+        }
         this.elements.mainVideo.style.display = 'block';
+        this.elements.mainVideo.muted = true;
         this.elements.mainVideo.src = videoUrl;
         this.elements.mainVideo.loop = true;
-        this.elements.mainVideo.play().catch(e => console.warn('Autoplay error:', e));
+        
+        console.log('[IndoLens] [replaceVideo] src AFTER:', this.elements.mainVideo.src);
+
+        // Explicitly reload video element with new source
+        this.elements.mainVideo.load();
+
+        const playPromise = this.elements.mainVideo.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                console.log('[IndoLens] [replaceVideo] video.play() SUCCESS!');
+            }).catch(e => {
+                console.warn('[IndoLens] [replaceVideo] video.play() rejected:', e);
+            });
+        }
 
         setTimeout(() => {
             this.elements.mainVideo.classList.remove('video-crossfade');
@@ -184,20 +229,36 @@ const IndoLensHome = {
         return true;
     },
 
+    pollTimer: null,
+
     startRecognition(file) {
+        if (this.pollTimer) clearInterval(this.pollTimer);
         this.isProcessing = true;
+        this.currentMode = 'user';
         this.toggleOverlay(false); // Hide overlay during processing
-        this.showProgress('Uploading...');
+
+        if (this.elements.uploadSection) this.elements.uploadSection.style.display = 'none';
+        if (this.elements.btnUploadNew) this.elements.btnUploadNew.style.display = 'none';
+
+        // Instant Preview fallback from local file
+        try {
+            const previewUrl = URL.createObjectURL(file);
+            this.replaceVideo(previewUrl);
+        } catch (e) {
+            console.warn('[IndoLens] Failed to create local preview URL:', e);
+        }
+
+        this.showProgress('Uploading Video...');
 
         const formData = new FormData();
         formData.append('video', file);
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-        // Step 1: Uploading...
-        this.updateProgress('Uploading...', 25);
+        // Step 1: Uploading Video (< 1s response)
+        this.updateProgress('Uploading Video...', 15);
 
-        fetch('/recognize', {
+        fetch('/upload', {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': csrfToken || '',
@@ -206,24 +267,81 @@ const IndoLensHome = {
             body: formData
         })
         .then(response => {
-            this.updateProgress('Recognizing Faces...', 65);
             if (!response.ok) {
-                return response.json().then(err => { throw new Error(err.message || 'Terjadi kesalahan saat pengenalan.'); });
+                return response.json().then(err => { throw new Error(err.message || 'Gagal mengunggah video.'); });
             }
             return response.json();
         })
-        .then(data => {
-            this.updateProgress('Rendering Overlay...', 90);
-            setTimeout(() => {
-                this.receiveRecognition(data);
-            }, 500);
+        .then(uploadData => {
+            console.log('[IndoLens] Upload Success:', uploadData);
+            
+            // Immediately play uploaded video from server URL if available
+            if (uploadData.video_url) {
+                this.replaceVideo(uploadData.video_url);
+            }
+
+            const videoToken = uploadData.video_token;
+            this.updateProgress('Initializing Recognition...', 20);
+
+            // Step 2: Trigger Async Background Recognition (Returns 202 Accepted immediately)
+            return fetch('/recognize', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken || '',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ video_token: videoToken })
+            })
+            .then(recResponse => {
+                if (recResponse.status !== 202 && !recResponse.ok) {
+                    return recResponse.json().then(err => { throw new Error(err.message || 'Terjadi kesalahan saat pengenalan.'); });
+                }
+                return recResponse.json();
+            })
+            .then(recData => {
+                console.log('[IndoLens] Recognition Triggered (202 Accepted):', recData);
+                // Step 3: Poll status every 1 second
+                this.pollRecognitionStatus(videoToken);
+            });
         })
         .catch(error => {
-            console.error('Recognition Failed:', error);
+            console.error('Process Failed:', error);
             this.hideProgress();
             this.isProcessing = false;
+            if (this.elements.uploadSection) this.elements.uploadSection.style.display = 'block';
             this.showToast(error.message || 'Gagal memproses video.', 'error');
         });
+    },
+
+    pollRecognitionStatus(token) {
+        if (this.pollTimer) clearInterval(this.pollTimer);
+
+        this.pollTimer = setInterval(() => {
+            fetch(`/recognition/status/${token}`, {
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'processing') {
+                    this.updateProgress(data.stage || 'Memproses video...', data.progress || 0);
+                } else if (data.status === 'completed') {
+                    clearInterval(this.pollTimer);
+                    this.pollTimer = null;
+                    this.receiveRecognition(data);
+                } else if (data.status === 'error') {
+                    clearInterval(this.pollTimer);
+                    this.pollTimer = null;
+                    this.hideProgress();
+                    this.isProcessing = false;
+                    if (this.elements.uploadSection) this.elements.uploadSection.style.display = 'block';
+                    this.showToast(data.message || 'Proses pengenalan gagal.', 'error');
+                }
+            })
+            .catch(err => {
+                console.warn('[IndoLens] Status poll transient error:', err);
+            });
+        }, 1000);
     },
 
     receiveRecognition(data) {
@@ -232,14 +350,22 @@ const IndoLensHome = {
         this.isProcessing = false;
         this.currentMode = 'user';
 
+        if (this.elements.uploadSection) this.elements.uploadSection.style.display = 'none';
+        if (this.elements.btnUploadNew) this.elements.btnUploadNew.style.display = 'inline-flex';
+
         setTimeout(() => {
             this.hideProgress();
-            if (data.output_video) {
-                // Serve output video path
-                const outputUrl = `/storage/ai/results/${data.output_video.split('/').pop()}`;
-                this.replaceVideo(outputUrl);
-            } else if (data.video_url) {
-                this.replaceVideo(data.video_url);
+            
+            // Extract output video URL from root or nested data object
+            const outputUrl = data.video_url || data.output_video || 
+                             (data.data && (data.data.video_url || data.data.output_video));
+            
+            if (outputUrl) {
+                // If it's a full URL or absolute path, use it directly, otherwise build relative URL
+                const finalUrl = outputUrl.startsWith('http') || outputUrl.startsWith('/') 
+                    ? outputUrl 
+                    : `/results/${outputUrl.split(/[\/\\]/).pop()}`;
+                this.replaceVideo(finalUrl);
             }
 
             this.replaceOverlay(data);
@@ -345,7 +471,10 @@ const IndoLensHome = {
     },
 
     handleVideoError() {
-        this.elements.mainVideo.style.display = 'none';
-        this.elements.videoFallback.style.display = 'flex';
+        console.warn('[IndoLens] [handleVideoError] Triggered. currentMode:', this.currentMode);
+        if (this.currentMode === 'demo') {
+            if (this.elements.mainVideo) this.elements.mainVideo.style.display = 'none';
+            if (this.elements.videoFallback) this.elements.videoFallback.style.display = 'flex';
+        }
     }
 };

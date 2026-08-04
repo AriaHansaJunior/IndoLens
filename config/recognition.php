@@ -19,4 +19,7 @@ return [
 
     'python_binary' => 'python',
 
+    // Process timeout in seconds. 0 = unlimited (recommended for long videos).
+    'process_timeout' => 0,
+
 ];
