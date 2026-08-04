@@ -72,9 +72,9 @@ def render_video(video_path, frames_detections, output_path=None, actor_metadata
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    # FourCC codec for MP4 video output
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+    # Use Media Foundation backend on Windows with H264 which is widely supported by browsers
+    fourcc = cv2.VideoWriter_fourcc(*"H264")
+    out = cv2.VideoWriter(str(output_path), cv2.CAP_MSMF, fourcc, fps, (width, height))
 
     # Index detections by frame number for fast lookup
     detection_map = {item["frame"]: item.get("detections", []) for item in frames_detections}

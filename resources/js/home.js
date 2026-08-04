@@ -52,6 +52,7 @@ const IndoLensHome = {
             // Buttons
             btnActorList: document.getElementById('btnActorList'),
             btnUploadNew: document.getElementById('btnUploadNew'),
+            btnResetSession: document.getElementById('btnResetSession'),
             
             // Toast
             toastContainer: document.getElementById('toastContainer'),
@@ -92,6 +93,25 @@ const IndoLensHome = {
             this.elements.btnUploadNew.addEventListener('click', () => {
                 if (!this.isProcessing && this.elements.fileInput) {
                     this.elements.fileInput.click();
+                }
+            });
+        }
+
+        if (this.elements.btnResetSession) {
+            this.elements.btnResetSession.addEventListener('click', () => {
+                if (!this.isProcessing) {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    fetch('/reset', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken || '',
+                            'Accept': 'application/json'
+                        }
+                    }).then(() => {
+                        window.location.reload();
+                    }).catch(() => {
+                        window.location.reload();
+                    });
                 }
             });
         }

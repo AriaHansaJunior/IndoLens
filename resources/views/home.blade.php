@@ -80,6 +80,14 @@
         </svg>
         Upload Video Baru
     </button>
+    
+    <!-- Reset Session Button (Shown when active video exists) -->
+    <button type="button" id="btnResetSession" class="btn btn-danger" style="{{ $hasActiveVideo ? 'display: inline-flex;' : 'display: none;' }} background-color: #ff4757; color: white; border-color: #ff4757;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18.36 6.64a9 9 0 11-12.73 0M12 2v10"/>
+        </svg>
+        Tutup Video
+    </button>
 </div>
 
 <script>

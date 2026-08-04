@@ -103,11 +103,17 @@ class RecognitionController extends Controller
             // Run Python recognition synchronously (waits until done)
             $result = $this->recognitionService->recognizeVideo($videoPath);
 
-            // Extract recognized actor names from frames data
+            // Check total faces detected across all frames
+            $totalDetections = 0;
+            $hasUnknownFaces = false;
+            
             $recognizedNames = [];
             $frames = $result['data']['frames'] ?? [];
             foreach ($frames as $frame) {
-                foreach ($frame['detections'] ?? [] as $det) {
+                $dets = $frame['detections'] ?? [];
+                $totalDetections += count($dets);
+                
+                foreach ($dets as $det) {
                     $status = $det['status'] ?? 'unknown';
                     $actor = $det['actor'] ?? 'unknown';
                     if ($status === 'known' && $actor !== 'unknown' && $actor !== 'Tidak Dikenali') {
@@ -117,9 +123,19 @@ class RecognitionController extends Controller
                         if (strtolower($actor) === 'bayu_eko_moektito' || strtolower($normalized) === 'bayu eko moektito') {
                             $recognizedNames[] = 'Bayu Skak';
                         }
+                    } else {
+                        $hasUnknownFaces = true;
                     }
                 }
             }
+
+            if ($totalDetections === 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tidak ada muka manusia dalam video ini.',
+                ], 400);
+            }
+
             $recognizedNames = array_values(array_unique($recognizedNames));
 
             // Enrich actors data for frontend pause overlay
@@ -157,6 +173,17 @@ class RecognitionController extends Controller
                         'filmography' => []
                     ];
                 }
+            }
+
+            // Fallback if no known faces at all but faces exist
+            if (empty($enrichedActors) && $hasUnknownFaces) {
+                $enrichedActors[] = [
+                    'id' => 999,
+                    'name' => 'Wajah tidak dikenali',
+                    'character' => '',
+                    'age' => '',
+                    'filmography' => []
+                ];
             }
 
             // Copy overlay video to public/results/
