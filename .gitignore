@@ -32,10 +32,17 @@ python/*/__pycache__/
 python/outputs/logs/
 python/outputs/reports/
 python/outputs/evaluation/
-python/temp/
+python/outputs/videos/*
+!python/outputs/videos/.gitkeep
+python/temp/*
+!python/temp/.gitkeep
 *.pyc
 *.npy
 
-# Temporary Storage
-/storage/app/ai/temp/
-/storage/app/ai/results/
+# Temporary & Public Upload Storage
+/public/uploads/*
+!/public/uploads/.gitkeep
+/storage/app/ai/temp/*
+!/storage/app/ai/temp/.gitkeep
+/storage/app/ai/results/*
+!/storage/app/ai/results/.gitkeep
