@@ -1,8 +1,7 @@
 <?php
 
 return [
-
-    'max_video_size' => 51200, // In kilobytes (50 MB)
+    'max_video_size' => 1048576, // In kilobytes (1024 MB = 1 GB)
 
     'allowed_extensions' => [
         'mp4',

@@ -262,8 +262,8 @@ const IndoLensHome = {
             return false;
         }
 
-        // Max size 50MB (51200 KB) as configured in recognition.php
-        const maxSizeMB = 50;
+        // Max size 1024MB (1GB)
+        const maxSizeMB = 1024;
         if (file.size > maxSizeMB * 1024 * 1024) {
             this.showToast(`Ukuran video melebihi batas maksimum ${maxSizeMB}MB.`, 'error');
             return false;
