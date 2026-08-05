@@ -7,18 +7,43 @@ Tujuan:
     menggunakan pipeline YOLO Face Detection + FaceNet Embedding + Euclidean Distance.
 
 Cara menjalankan:
-    cd c:\laragon\www\IndoLens\python
-    python desktop\main.py
+    cd c:\\laragon\\www\\IndoLens\\python
+    python desktop\\main.py
 """
 
 import sys
 import os
+
+# Fix WinError 1114 for PyTorch DLL & OpenMP loading on Windows
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+# Turunkan batas deteksi YOLO agar wajah yang jauh di IDLIX tetap terdeteksi
+os.environ["YOLO_CONFIDENCE"] = "0.45"
+os.environ["MIN_FACE_CONFIDENCE"] = "0.45"
+
+if sys.platform == "win32":
+    try:
+        import site
+        for sp in site.getsitepackages():
+            torch_lib = os.path.join(sp, "torch", "lib")
+            if os.path.exists(torch_lib):
+                os.add_dll_directory(torch_lib)
+    except Exception:
+        pass
+
+# Import torch FIRST before PyQt5 or ctypes DPI calls to prevent DLL initialization conflicts
+try:
+    import torch
+except Exception:
+    pass
+
 import time
 import ctypes
 import ctypes.wintypes
 from typing import List, Tuple, Optional
 
 import numpy as np
+import cv2
 import webbrowser
 
 # Tambahkan path root python agar bisa import dari modul yolo, facenet, dan recognition
@@ -40,9 +65,8 @@ try:
     from facenet.embedding_generator import load_facenet_model, generate_embedding
     from recognition.embedding_matcher import load_all_embeddings, find_best_match
     from config.config import FACE_DISTANCE_THRESHOLD
-    import torch
     HAS_AI = True
-    COMPUTE_DEVICE = "CUDA (GPU)" if torch.cuda.is_available() else "CPU"
+    COMPUTE_DEVICE = "CUDA (GPU)" if (torch is not None and torch.cuda.is_available()) else "CPU"
 except ImportError as e:
     HAS_AI = False
     print(f"[Error] Gagal mengimpor modul AI: {e}")
@@ -106,6 +130,8 @@ def _get_largest_child_window(hwnd: int) -> int:
     return largest_hwnd
 
 def _get_client_rect_in_screen(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
+    # Kembalikan pencarian child window agar UWP apps (seperti Films & TV) dapat direkam.
+    # Jika tidak ada child, gunakan window utama.
     target_hwnd = _get_largest_child_window(hwnd)
     client_rect = _RECT()
     if not ctypes.windll.user32.GetClientRect(target_hwnd, ctypes.byref(client_rect)): return None
@@ -148,28 +174,32 @@ def check_fullscreen(rect: Tuple[int, int, int, int]) -> bool:
 class CaptureBackend:
     def __init__(self):
         self._mode, self._dxcam, self._mss = "none", None, None
+        
+        # Prioritaskan MSS karena lebih stabil di semua laptop (termasuk hybrid GPU).
+        # DXCam sering mengalami silent failure (layar hitam) di laptop.
+        if HAS_MSS:
+            try:
+                self._mss, self._mode = mss.mss(), "mss"
+                return
+            except Exception: pass
+            
         if HAS_DXCAM:
             try:
                 self._dxcam = dxcam.create(output_color="BGR")
                 self._mode = "dxcam"
                 return
             except Exception: pass
-        if HAS_MSS:
-            try:
-                self._mss, self._mode = mss.mss(), "mss"
-                return
-            except Exception: pass
 
     def grab(self, left: int, top: int, right: int, bottom: int) -> Optional[np.ndarray]:
-        if self._mode == "dxcam" and self._dxcam:
-            try:
-                frame = self._dxcam.grab(region=(left, top, right, bottom))
-                if frame is not None: return np.asarray(frame)
-            except Exception: pass
-        elif self._mode == "mss" and self._mss:
+        if self._mode == "mss" and self._mss:
             try:
                 shot = self._mss.grab({"left": left, "top": top, "width": right - left, "height": bottom - top})
                 return cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
+            except Exception: pass
+        elif self._mode == "dxcam" and self._dxcam:
+            try:
+                frame = self._dxcam.grab(region=(left, top, right, bottom))
+                if frame is not None: return np.asarray(frame)
             except Exception: pass
         return None
 
@@ -256,6 +286,12 @@ class InferenceThread(QThread):
                     "actor": rec_result["actor"],
                     "status": rec_result["status"]
                 })
+
+            # --- DEBUGGING: Simpan frame ke disk jika tidak ada wajah (sekali per 3 detik) ---
+            if faces_processed == 0 and int(time.time()) % 3 == 0:
+                os.makedirs("temp", exist_ok=True)
+                cv2.imwrite("temp/debug_capture.jpg", frame)
+            # --------------------------------------------------------------------------------
 
             fn_ms = (time.perf_counter() - t_fn) * 1000 - t_eucl_total
             
@@ -360,6 +396,7 @@ class OverlayWindow(QWidget):
             color = QColor(0, 255, 0) if status == "known" else QColor(255, 0, 0)
             
             # Draw Box
+            painter.setBrush(Qt.NoBrush) # Reset brush agar bounding box tidak menjadi block warna solid
             pen = QPen(color, 2)
             painter.setPen(pen)
             painter.drawRect(sx1, sy1, sx2 - sx1, sy2 - sy1)
@@ -425,7 +462,7 @@ class ControllerWindow(QWidget):
         self.is_running = False
 
         self.setWindowTitle("IndoLens Controller")
-        self.setFixedSize(300, 180)
+        self.setFixedSize(450, 220)
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
 
         layout = QVBoxLayout()
