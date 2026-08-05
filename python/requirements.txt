@@ -8,3 +8,7 @@ scipy
 pillow
 tqdm
 pandas
+PyQt5
+dxcam
+pywin32
+mss
