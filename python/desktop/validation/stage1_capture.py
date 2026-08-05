@@ -5,7 +5,12 @@ IndoLens Desktop – Tahap 1: Window Capture Validation
 Tujuan:
     Membuktikan bahwa DXCam (atau MSS sebagai fallback) berhasil
     menangkap frame video secara realtime dari window target yang
-    dipilih pengguna, dan menampilkannya dalam window preview OpenCV.
+    dipilih pengguna.
+
+Catatan Penting (Revisi 1):
+    Preview OpenCV di sini HANYA digunakan sementara untuk proses 
+    validasi Tahap 1. Preview ini akan dihapus pada Tahap 4 saat 
+    Transparent Overlay (PyQt5) selesai diimplementasikan.
 
 Cara menjalankan:
     cd c:\\laragon\\www\\IndoLens\\python
@@ -75,13 +80,40 @@ def _get_window_text(hwnd: int) -> str:
     return buf.value
 
 
+def _get_largest_child_window(hwnd: int) -> int:
+    """Mencari child window terbesar (biasanya viewport web / video player)."""
+    largest_hwnd = hwnd
+    max_area = 0
+
+    def enum_child(child, _):
+        nonlocal largest_hwnd, max_area
+        if not ctypes.windll.user32.IsWindowVisible(child):
+            return True
+        rect = _RECT()
+        ctypes.windll.user32.GetClientRect(child, ctypes.byref(rect))
+        w = rect.right - rect.left
+        h = rect.bottom - rect.top
+        area = w * h
+        if area > max_area:
+            max_area = area
+            largest_hwnd = child
+        return True
+
+    EnumChildProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+    ctypes.windll.user32.EnumChildWindows(hwnd, EnumChildProc(enum_child), 0)
+    return largest_hwnd
+
+
 def _get_client_rect_in_screen(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
     """
-    Kembalikan (left, top, right, bottom) dari area client window dalam koordinat layar.
-    Menggunakan ClientToScreen agar tidak termasuk border/titlebar.
+    Kembalikan (left, top, right, bottom) dari area client (video player).
+    Revisi 2: Hanya menangkap viewport video, bukan toolbar/bookmark bar browser.
     """
+    # Cari viewport/video player area yang sebenarnya
+    target_hwnd = _get_largest_child_window(hwnd)
+
     client_rect = _RECT()
-    ok = ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(client_rect))
+    ok = ctypes.windll.user32.GetClientRect(target_hwnd, ctypes.byref(client_rect))
     if not ok:
         return None
 
@@ -89,7 +121,7 @@ def _get_client_rect_in_screen(hwnd: int) -> Optional[Tuple[int, int, int, int]]
         _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
     pt = POINT(0, 0)
-    ctypes.windll.user32.ClientToScreen(hwnd, ctypes.byref(pt))
+    ctypes.windll.user32.ClientToScreen(target_hwnd, ctypes.byref(pt))
 
     left   = pt.x
     top    = pt.y
