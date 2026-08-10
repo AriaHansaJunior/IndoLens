@@ -9,12 +9,6 @@
     
     <!-- Page Header -->
     <header class="actors-header">
-        <a href="/" class="btn-back" title="Kembali ke Beranda">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-            Kembali
-        </a>
         <h1 class="page-title">Actor List</h1>
     </header>
 
@@ -30,7 +24,7 @@
     <!-- Actors Grid -->
     <section class="actors-grid" id="actorsGrid">
         @forelse($actors as $actor)
-            <div class="actor-card" data-name="{{ $actor->full_name }}" data-id="{{ $actor->id }}">
+            <div class="actor-card" data-name="{{ $actor->full_name }}" data-id="{{ $actor->id }}" data-is-known="{{ $actor->is_detected ? '1' : '0' }}">
                 
                 <div class="card-image-wrapper">
                     <!-- Assuming photo contains filename like 'bayu_skak.jpg'. Adjust path based on your storage structure -->
@@ -40,8 +34,14 @@
                 <div class="card-content">
                     <h2 class="actor-name">{{ $actor->full_name }}</h2>
                     
-                    <span class="status-badge status-{{ strtolower($status ?? 'known') }}">
-                        {{ $status ?? 'Known' }}
+                    @if($actor->is_detected && $actor->current_character_name)
+                        <span class="actor-role-label">Sebagai: {{ $actor->current_character_name }}</span>
+                    @else
+                        <span class="actor-role-label" style="display:none;">Sebagai: -</span>
+                    @endif
+                    
+                    <span class="status-badge status-{{ $actor->is_detected ? 'known' : 'unknown' }}">
+                        {{ $actor->is_detected ? 'KNOWN' : 'UNKNOWN' }}
                     </span>
                     
                     <a href="/actors/{{ $actor->id }}" class="btn-detail">
@@ -54,8 +54,8 @@
             </div>
         @empty
             <div class="empty-state" id="emptyStateMessageDefault">
-                <h3>Belum ada aktor yang dikenali</h3>
-                <p>Silakan upload video demonstrasi pada halaman utama terlebih dahulu.</p>
+                <h3>Belum ada data aktor</h3>
+                <p>Data aktor belum tersedia di sistem database.</p>
             </div>
         @endforelse
         

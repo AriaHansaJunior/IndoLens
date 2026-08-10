@@ -1,17 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\RecognitionController;
 use App\Http\Controllers\ActorController;
 
-Route::get('/', [HomeController::class, 'index']);
-Route::post('/upload', [RecognitionController::class, 'upload']);
-Route::post('/recognize', [RecognitionController::class, 'recognize']);
-Route::post('/reset', [RecognitionController::class, 'reset']);
-Route::get('/recognition/status/{token}', [RecognitionController::class, 'status']);
-Route::get('/result', [RecognitionController::class, 'result']);
-Route::get('/stream/video/{filename}', [RecognitionController::class, 'streamVideo']);
-
+Route::get('/', [ActorController::class, 'index'])->name('actors.index');
 Route::get('/actors', [ActorController::class, 'index']);
-Route::get('/actors/{id}', [ActorController::class, 'show']);
+Route::get('/actors/{id}', [ActorController::class, 'show'])->name('actors.show');
+
+// Real-time integration API
+use App\Http\Controllers\ActiveActorController;
+Route::post('/api/actors/active', [ActiveActorController::class, 'updateActive']);
+Route::get('/api/actors/active', [ActiveActorController::class, 'getActive']);

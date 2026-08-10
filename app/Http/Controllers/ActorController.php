@@ -16,15 +16,11 @@ class ActorController extends Controller
     }
 
     /**
-     * Display a listing of actors that were recognized in the last video.
+     * Display a listing of all actors.
      */
     public function index()
     {
-        $recognizedNames = session('recognized_actor_names', []);
-        
-        $actors = !empty($recognizedNames)
-            ? Actor::whereIn('full_name', $recognizedNames)->orderBy('full_name', 'asc')->get()
-            : collect();
+        $actors = Actor::orderBy('is_detected', 'desc')->orderBy('full_name', 'asc')->get();
 
         return view('actors.index', [
             'actors' => $actors,
@@ -37,15 +33,10 @@ class ActorController extends Controller
      */
     public function show(string $id)
     {
-        $actor = $this->getActor($id);
-        
-        // As per requirement, determine movie context if available, otherwise null
-        $movieContext = session('recognized_movie_id', null);
-        
-        $character = $this->getCharacter($actor, $movieContext);
+        $actor  = $this->getActor($id);
         $movies = $this->getFilmography($actor);
 
-        return view('actors.show', compact('actor', 'character', 'movies'));
+        return view('actors.show', compact('actor', 'movies'));
     }
 
     /**

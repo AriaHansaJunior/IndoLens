@@ -27,10 +27,21 @@
         <!-- Details -->
         <div class="actor-info">
             
-            <div class="actor-name-group">
+            <div class="actor-name-group" data-actor-name="{{ $actor->full_name }}">
                 <h1 class="actor-title">{{ $actor->full_name }}</h1>
-                @if($character)
-                    <div class="actor-character">Sebagai: {{ $character->character_name }}</div>
+                
+                @if($actor->is_detected && $actor->current_character_name)
+                    <div class="actor-character" id="actorCharacterLabel">Sebagai: {{ $actor->current_character_name }}</div>
+                    <div class="actor-hint" id="actorHintLabel" style="display:none;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                        Putar film yang diperankan oleh {{ $actor->full_name }} untuk mendeteksi nama karakternya
+                    </div>
+                @else
+                    <div class="actor-character" id="actorCharacterLabel" style="display:none;"></div>
+                    <div class="actor-hint" id="actorHintLabel">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                        Putar film yang diperankan oleh {{ $actor->full_name }} untuk mendeteksi nama karakternya
+                    </div>
                 @endif
             </div>
 

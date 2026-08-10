@@ -45,6 +45,8 @@ from typing import List, Tuple, Optional
 import numpy as np
 import cv2
 import webbrowser
+import requests
+import threading
 
 # Tambahkan path root python agar bisa import dari modul yolo, facenet, dan recognition
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -293,6 +295,36 @@ class InferenceThread(QThread):
                 cv2.imwrite("temp/debug_capture.jpg", frame)
             # --------------------------------------------------------------------------------
 
+            # --- Real-Time Sync to Laravel (Every 1 Second) ---
+            current_time = time.time()
+            if not hasattr(self, 'last_sync_time'):
+                self.last_sync_time = 0
+
+            if current_time - self.last_sync_time >= 1.0:
+                active_actors = list(set([d["actor"] for d in output_detections if d["status"] == "known"]))
+                
+                # Retrieve the window title from the OS so Laravel can match the movie name
+                try:
+                    buf = ctypes.create_unicode_buffer(512)
+                    ctypes.windll.user32.GetWindowTextW(self.hwnd, buf, 512)
+                    window_title = buf.value
+                except Exception:
+                    window_title = ""
+
+                def sync_to_laravel(actors, title):
+                    try:
+                        requests.post(
+                            f"{LARAVEL_URL}/api/actors/active",
+                            json={"actors": actors, "window_title": title},
+                            timeout=2.0
+                        )
+                    except Exception:
+                        pass  # Ignore sync errors to prevent crashing
+                
+                threading.Thread(target=sync_to_laravel, args=(active_actors, window_title), daemon=True).start()
+                self.last_sync_time = current_time
+            # --------------------------------------------------------------------------------
+
             fn_ms = (time.perf_counter() - t_fn) * 1000 - t_eucl_total
             
             # Metrics calculation for terminal
@@ -462,10 +494,74 @@ class ControllerWindow(QWidget):
         self.is_running = False
 
         self.setWindowTitle("IndoLens Controller")
-        self.setFixedSize(450, 220)
+        self.setFixedSize(520, 380)
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        
+        # Apply Laravel Dark Theme Stylesheet
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #05070E;
+                color: #FFFFFF;
+                font-family: 'Segoe UI', Inter, sans-serif;
+                font-size: 15px;
+            }
+            QLabel {
+                color: #8F9BBA;
+                font-weight: 600;
+                margin-bottom: 6px;
+                font-size: 15px;
+            }
+            QComboBox {
+                background-color: #0B0F19;
+                border: 1px solid #2A3142;
+                border-radius: 8px;
+                padding: 10px 14px;
+                color: #FFFFFF;
+                font-size: 15px;
+            }
+            QComboBox:focus {
+                border-color: #165DFF;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #0B0F19;
+                color: #FFFFFF;
+                selection-background-color: #165DFF;
+                border: 1px solid #2A3142;
+                font-size: 15px;
+            }
+            QPushButton {
+                background-color: #1A2130;
+                border: 1px solid #2A3142;
+                border-radius: 8px;
+                padding: 12px 18px;
+                color: #FFFFFF;
+                font-weight: 600;
+                font-size: 15px;
+            }
+            QPushButton:hover {
+                background-color: #165DFF;
+                border-color: #165DFF;
+            }
+            QPushButton:disabled {
+                background-color: #05070E;
+                color: #4A5568;
+                border-color: #1A2130;
+            }
+            #statusLabel {
+                color: #FFFFFF;
+                font-weight: 700;
+                font-size: 18px;
+                background-color: #0B0F19;
+                border: 1px dashed #2A3142;
+                border-radius: 8px;
+                padding: 20px;
+                margin-top: 12px;
+            }
+        """)
 
         layout = QVBoxLayout()
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(14)
 
         # Window Selector
         self.combo = QComboBox()
@@ -475,6 +571,7 @@ class ControllerWindow(QWidget):
 
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
         self.btn_on = QPushButton("▶ ON")
         self.btn_off = QPushButton("⏹ OFF")
         self.btn_off.setEnabled(False)
@@ -493,6 +590,7 @@ class ControllerWindow(QWidget):
 
         # Status
         self.lbl_status = QLabel(f"Status: OFF\nDevice: {COMPUTE_DEVICE}")
+        self.lbl_status.setObjectName("statusLabel")
         self.lbl_status.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.lbl_status)
 

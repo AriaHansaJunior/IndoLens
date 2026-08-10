@@ -17,6 +17,7 @@ const ActorDetail = {
     init() {
         this.cacheDOM();
         this.initializePage();
+        this.initializeRealtimeSync();
     },
 
     /**
@@ -26,6 +27,9 @@ const ActorDetail = {
         this.elements = {
             btnBack: document.getElementById('btnBack'),
             filmographyList: document.getElementById('filmographyList'),
+            charLabel: document.getElementById('actorCharacterLabel'),
+            hintLabel: document.getElementById('actorHintLabel'),
+            nameGroup: document.querySelector('.actor-name-group'),
         };
     },
 
@@ -39,6 +43,51 @@ const ActorDetail = {
     initializePage() {
         this.bindBackButton();
         this.renderFilmography();
+    },
+
+    /**
+     * Real-time sync with API to update character / hint dynamically.
+     */
+    initializeRealtimeSync() {
+        if (!this.elements.nameGroup) return;
+
+        const actorName = (this.elements.nameGroup.getAttribute('data-actor-name') || '').toLowerCase().trim();
+
+        setInterval(async () => {
+            try {
+                const response = await fetch('/api/actors/active');
+                if (!response.ok) return;
+
+                const data = await response.json();
+                const activeActors = (data.detected_actors || []).map(n => String(n).toLowerCase().trim());
+                const charMap = {};
+                Object.keys(data.character_map || {}).forEach(k => {
+                    charMap[String(k).toLowerCase().trim()] = data.character_map[k];
+                });
+
+                const isDetected = activeActors.includes(actorName);
+                const charName = charMap[actorName];
+
+                if (isDetected && charName) {
+                    if (this.elements.charLabel) {
+                        this.elements.charLabel.textContent = `Sebagai: ${charName}`;
+                        this.elements.charLabel.style.display = '';
+                    }
+                    if (this.elements.hintLabel) {
+                        this.elements.hintLabel.style.display = 'none';
+                    }
+                } else {
+                    if (this.elements.charLabel) {
+                        this.elements.charLabel.style.display = 'none';
+                    }
+                    if (this.elements.hintLabel) {
+                        this.elements.hintLabel.style.display = '';
+                    }
+                }
+            } catch (err) {
+                // Ignore background polling errors
+            }
+        }, 2000);
     },
 
     /**

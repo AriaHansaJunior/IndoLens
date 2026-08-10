@@ -21,13 +21,24 @@ class Actor extends Model
         'instagram',
         'wikipedia',
         'imdb',
+        'is_detected',
+        'current_character_name',
+        'detected_window_title',
     ];
 
     /**
-     * Get characters played by the actor.
+     * Get characters played by the actor (legacy).
      */
     public function characters(): HasMany
     {
         return $this->hasMany(Character::class, 'actor_id');
+    }
+
+    /**
+     * Get the movie roles (character per film) for this actor.
+     */
+    public function roles(): HasMany
+    {
+        return $this->hasMany(ActorRole::class, 'actor_id');
     }
 }

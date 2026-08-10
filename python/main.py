@@ -67,38 +67,6 @@ def render_overlay(frame, detections):
     pass
 
 
-def run_embedding_generation():
-    """Scan dataset and generate 128-D .npy FaceNet embeddings for all actor images."""
-    dataset = load_dataset()
-    generated_count = 0
-    results = {}
-
-    for actor_name, actor_data in dataset.items():
-        if not actor_data or not actor_data["images"]:
-            continue
-
-        actor_results = []
-        for img_path in actor_data["images"]:
-            emb = generate_embedding(img_path)
-            out_filename = Path(img_path).stem + ".npy"
-            out_path = EMBEDDING_PATH / actor_name / out_filename
-            saved_file = save_embedding(emb, out_path)
-            actor_results.append({
-                "source": Path(img_path).name,
-                "embedding": saved_file,
-                "dimension": len(emb)
-            })
-            generated_count += 1
-
-        results[actor_name] = actor_results
-
-    return {
-        "embeddings_generated": generated_count,
-        "actors_processed": len(results),
-        "details": results
-    }
-
-
 def main():
     start_time = time.time()
     logger = initialize_logger()
@@ -121,11 +89,6 @@ def main():
             else:
                 log_warning(msg)
             print(format_json_response(status_str, "validate", msg, report))
-
-        elif command == "generate-embeddings":
-            res = run_embedding_generation()
-            log_success("FaceNet embeddings generated successfully.")
-            print(format_json_response("success", "generate-embeddings", "FaceNet embeddings generated successfully.", res))
 
         elif command == "detect-video":
             video_input = sys.argv[2] if len(sys.argv) > 2 else ""

@@ -35,8 +35,8 @@ body {
 }
 
 .actors-container {
-    max-width: 1400px;
-    width: 92%;
+    max-width: 1200px;
+    width: 90%;
     margin: 0 auto;
     padding: 20px 0 60px;
     display: flex;
@@ -189,6 +189,13 @@ body {
     margin: 0;
 }
 
+.actor-role-label {
+    font-size: 12px;
+    color: #00FF66;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
 .status-badge {
     align-self: flex-start;
     padding: 4px 10px;
@@ -201,8 +208,16 @@ body {
 
 .status-known {
     background: rgba(0, 255, 102, 0.15);
-    color: var(--known-green);
-    border: 1px solid rgba(0, 255, 102, 0.3);
+    color: #00FF66;
+    border: 1px solid rgba(0, 255, 102, 0.35);
+    box-shadow: 0 0 10px rgba(0, 255, 102, 0.15);
+}
+
+.status-unknown {
+    background: rgba(255, 59, 48, 0.15);
+    color: #FF4D4D;
+    border: 1px solid rgba(255, 77, 77, 0.4);
+    box-shadow: 0 0 10px rgba(255, 77, 77, 0.2);
 }
 
 /* ------------------------------------------
