@@ -13,7 +13,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
-            Kembali
+            Back
         </a>
     </header>
 
@@ -31,49 +31,49 @@
                 <h1 class="actor-title">{{ $actor->full_name }}</h1>
                 
                 @if($actor->is_detected && $actor->current_character_name)
-                    <div class="actor-character" id="actorCharacterLabel">Sebagai: {{ $actor->current_character_name }}</div>
+                    <div class="actor-character" id="actorCharacterLabel">Role: {{ $actor->current_character_name }}</div>
                     <div class="actor-hint" id="actorHintLabel" style="display:none;">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                        Putar film yang diperankan oleh {{ $actor->full_name }} untuk mendeteksi nama karakternya
+                        Play a film starring {{ $actor->full_name }} to detect character name
                     </div>
                 @else
                     <div class="actor-character" id="actorCharacterLabel" style="display:none;"></div>
                     <div class="actor-hint" id="actorHintLabel">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                        Putar film yang diperankan oleh {{ $actor->full_name }} untuk mendeteksi nama karakternya
+                        Play a film starring {{ $actor->full_name }} to detect character name
                     </div>
                 @endif
             </div>
 
             <div class="meta-grid">
                 <div class="meta-item">
-                    <span class="meta-label">Jenis Kelamin</span>
+                    <span class="meta-label">Gender</span>
                     <span class="meta-value">{{ $actor->gender ?? '-' }}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">Umur</span>
-                    <span class="meta-value">{{ $actor->age ? $actor->age . ' Tahun' : '-' }}</span>
+                    <span class="meta-label">Age</span>
+                    <span class="meta-value">{{ $actor->age ? $actor->age . ' Years Old' : '-' }}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">Tanggal Lahir</span>
-                    <span class="meta-value">{{ $actor->birth_date ? \Carbon\Carbon::parse($actor->birth_date)->translatedFormat('d F Y') : '-' }}</span>
+                    <span class="meta-label">Birth Date</span>
+                    <span class="meta-value">{{ $actor->birth_date ? \Carbon\Carbon::parse($actor->birth_date)->format('F d, Y') : '-' }}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">Tempat Lahir</span>
+                    <span class="meta-label">Birth Place</span>
                     <span class="meta-value">{{ $actor->birth_place ?? '-' }}</span>
                 </div>
             </div>
 
             <div class="biography-section">
-                <div class="section-title">Biografi</div>
+                <div class="section-title">Biography</div>
                 <div class="biography-content">
-                    {!! nl2br(e($actor->biography ?? 'Biografi belum tersedia untuk aktor ini.')) !!}
+                    {!! nl2br(e($actor->biography ?? 'Biography is not yet available for this actor.')) !!}
                 </div>
             </div>
 
             @if($actor->instagram || $actor->wikipedia || $actor->imdb)
                 <div class="biography-section">
-                    <div class="section-title">Tautan Luar</div>
+                    <div class="section-title">External Links</div>
                     <div class="biography-content" style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
                         @if($actor->instagram)
                             <a href="{{ \Illuminate\Support\Str::startsWith($actor->instagram, ['http://', 'https://']) ? $actor->instagram : 'https://' . $actor->instagram }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Instagram</a>

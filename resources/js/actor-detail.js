@@ -70,7 +70,7 @@ const ActorDetail = {
 
                 if (isDetected && charName) {
                     if (this.elements.charLabel) {
-                        this.elements.charLabel.textContent = `Sebagai: ${charName}`;
+                        this.elements.charLabel.textContent = `Role: ${charName}`;
                         this.elements.charLabel.style.display = '';
                     }
                     if (this.elements.hintLabel) {

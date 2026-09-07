@@ -9,6 +9,26 @@
 }
 
 /* ==========================================
+   GLOBAL DARK THEME TOKENS & BASE
+   ========================================== */
+:root {
+    --bg-dark: #05070E;
+    --card-bg: #0B0F19;
+    --primary: #165DFF;
+    --primary-hover: #0E4BDB;
+    --border-color: #2A3142;
+    --border-glow: rgba(22, 93, 255, 0.4);
+    --text-white: #FFFFFF;
+    --text-muted: #8F9BBA;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    min-height: 100vh;
+}
+
+/* ==========================================
    GLOBAL APP CONTAINER & HEADER
    ========================================== */
 .app-container {
@@ -27,10 +47,17 @@
     margin-bottom: 12px;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+}
+
 .brand-logo-link {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     text-decoration: none;
 }
 
@@ -38,8 +65,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 46px;
-    height: 46px;
+    width: 44px;
+    height: 44px;
     background: linear-gradient(135deg, #165DFF, #0042D9);
     color: #FFFFFF;
     font-weight: 800;
@@ -56,10 +83,47 @@
 }
 
 .brand-name {
-    font-size: 22px;
+    font-size: 21px;
     font-weight: 800;
     color: #FFFFFF;
     letter-spacing: 0.5px;
+}
+
+/* ------------------------------------------
+   HEADER NAVIGATION (RESPONSIVE)
+   ------------------------------------------ */
+.app-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(42, 49, 66, 0.7);
+    padding: 4px;
+    border-radius: 12px;
+}
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #8F9BBA;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #FFFFFF;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.nav-link.active {
+    color: #FFFFFF;
+    background: #165DFF;
+    box-shadow: 0 2px 10px rgba(22, 93, 255, 0.35);
 }
 
 /* ------------------------------------------
@@ -123,4 +187,51 @@
     object-fit: cover;
     object-position: center 10%;
     display: block;
+}
+
+/* ------------------------------------------
+   RESPONSIVE MEDIA QUERIES (MOBILE & TABLET)
+   ------------------------------------------ */
+@media (max-width: 768px) {
+    .app-container {
+        padding: 14px 14px 28px;
+    }
+
+    .app-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        padding-bottom: 16px;
+    }
+
+    .header-left {
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .author-badge {
+        align-self: flex-start;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-left {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .brand-logo-link {
+        justify-content: flex-start;
+    }
+
+    .app-nav {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .nav-link {
+        justify-content: center;
+    }
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,19 +19,41 @@
     <div class="app-container">
         <!-- App Header -->
         <header class="app-header">
-            <a href="/" class="brand-logo-link" title="IndoLens — Face Detection & Recognition System">
-                <div class="logo-badge">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
-                        <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
-                        <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
-                        <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-                        <circle cx="12" cy="12" r="3.5" fill="currentColor" fill-opacity="0.25"/>
-                        <circle cx="12" cy="12" r="6"/>
-                    </svg>
-                </div>
-                <span class="brand-name">IndoLens</span>
-            </a>
+            <div class="header-left">
+                <a href="/" class="brand-logo-link" title="IndoLens — Indonesian Actor Recognition System">
+                    <div class="logo-badge">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                            <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                            <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                            <circle cx="12" cy="12" r="3.5" fill="currentColor" fill-opacity="0.25"/>
+                            <circle cx="12" cy="12" r="6"/>
+                        </svg>
+                    </div>
+                    <span class="brand-name">IndoLens</span>
+                </a>
+
+                <!-- Navigation Links -->
+                <nav class="app-nav">
+                    <a href="{{ route('actors.index') }}" class="nav-link {{ request()->routeIs('actors.*') || request()->is('/') ? 'active' : '' }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        <span>Actors</span>
+                    </a>
+                    <a href="{{ route('camera.index') }}" class="nav-link {{ request()->routeIs('camera.*') ? 'active' : '' }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                        <span>Camera</span>
+                    </a>
+                </nav>
+            </div>
 
             <!-- Author Identity -->
             <div class="author-badge">

@@ -210,7 +210,7 @@ const ActorList = {
             if (roleLabel) {
                 const charName = lowerCharacterMap[lowerName];
                 if (isKnown && charName) {
-                    roleLabel.textContent = `Sebagai: ${charName}`;
+                    roleLabel.textContent = `Role: ${charName}`;
                     roleLabel.style.display = '';
                 } else {
                     roleLabel.style.display = 'none';

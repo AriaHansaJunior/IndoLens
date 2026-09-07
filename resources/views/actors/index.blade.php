@@ -35,9 +35,9 @@
                     <h2 class="actor-name">{{ $actor->full_name }}</h2>
                     
                     @if($actor->is_detected && $actor->current_character_name)
-                        <span class="actor-role-label">Sebagai: {{ $actor->current_character_name }}</span>
+                        <span class="actor-role-label">Role: {{ $actor->current_character_name }}</span>
                     @else
-                        <span class="actor-role-label" style="display:none;">Sebagai: -</span>
+                        <span class="actor-role-label" style="display:none;">Role: -</span>
                     @endif
                     
                     <span class="status-badge status-{{ $actor->is_detected ? 'known' : 'unknown' }}">
@@ -54,15 +54,15 @@
             </div>
         @empty
             <div class="empty-state" id="emptyStateMessageDefault">
-                <h3>Belum ada data aktor</h3>
-                <p>Data aktor belum tersedia di sistem database.</p>
+                <h3>No Actor Records Available</h3>
+                <p>Actor records are not yet available in the database.</p>
             </div>
         @endforelse
         
         <!-- Hidden Empty State for JS Filtering -->
         <div class="empty-state" id="emptyStateMessage" style="display: none;">
-            <h3>Aktor tidak ditemukan</h3>
-            <p>Cobalah kata kunci lain di kolom pencarian.</p>
+            <h3>Actor Not Found</h3>
+            <p>Try searching with a different keyword in the search bar.</p>
         </div>
     </section>
 
