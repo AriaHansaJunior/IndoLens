@@ -13,6 +13,7 @@ const CameraCapture = {
     // Media Stream State
     mediaStream: null,
     currentFacingMode: 'environment', // 'environment' (rear camera) by default for phone-to-screen pointing
+    activeFacingMode: 'environment',  // Actual facing mode active on track
     isStreaming: false,
 
     // Real-Time Frame Pipeline State (Session 2)
@@ -26,6 +27,12 @@ const CameraCapture = {
     // Reusable Buffer Canvas (O(1) memory allocation - prevents GC pressure)
     bufferCanvas: null,
     bufferCtx: null,
+
+    // Dedicated downsampled canvas for YOLO inference input.
+    // Viewfinder stays at native res; YOLO receives a smaller copy for fast transfer.
+    yoloCanvas: null,
+    yoloCtx: null,
+    YOLO_SEND_MAX_WIDTH: 640, // Max pixel width sent to Python YOLO service
 
     // Real-Time YOLO Face Detection State (Session 3)
     detectionCanvas: null,
@@ -84,8 +91,6 @@ const CameraCapture = {
             btnToggleText: document.getElementById('btnToggleText'),
             btnSwitch: document.getElementById('btnSwitchCamera'),
             btnCapture: document.getElementById('btnCaptureFrame'),
-            btnLiveStream: document.getElementById('btnLiveStreamCapture'),
-            btnStreamText: document.getElementById('btnStreamText'),
             btnStartPrompt: document.getElementById('btnStartPrompt'),
 
             // Telemetry Fields
@@ -112,11 +117,17 @@ const CameraCapture = {
 
     /**
      * Initialize Dedicated Offscreen Frame Buffer Canvas
+     * Also initializes the YOLO downsampling canvas (separate from viewfinder buffer).
      */
     initBufferCanvas() {
         this.bufferCanvas = document.createElement('canvas');
         this.bufferCtx = this.bufferCanvas.getContext('2d', { willReadFrequently: true });
         this.latestFrame.canvas = this.bufferCanvas;
+
+        // YOLO canvas: fixed-width offscreen canvas for fast payload to Python service.
+        // Viewfinder is NOT affected — only inference input is downsampled.
+        this.yoloCanvas = document.createElement('canvas');
+        this.yoloCtx = this.yoloCanvas.getContext('2d');
     },
 
     /**
@@ -147,10 +158,6 @@ const CameraCapture = {
 
         if (this.elements.btnCapture) {
             this.elements.btnCapture.addEventListener('click', () => this.captureManualSnapshot());
-        }
-
-        if (this.elements.btnLiveStream) {
-            this.elements.btnLiveStream.addEventListener('click', () => this.togglePipeline());
         }
 
         // Clean resource release on page unload / navigation
@@ -234,13 +241,13 @@ const CameraCapture = {
         this.hideError();
         this.updateStatus('connecting', 'Connecting...');
 
-        // Flexible constraints: prefer environment camera, ideal 720p, fallback gracefully
+        // Prefer 4:3 at 2048×1536 for phone sensor alignment — lower processing cost vs full 4096×3072
         const constraints = {
             audio: false,
             video: {
                 facingMode: { ideal: this.currentFacingMode },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: { ideal: 2048 },
+                height: { ideal: 1536 },
             }
         };
 
@@ -248,8 +255,15 @@ const CameraCapture = {
             try {
                 this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (err) {
-                console.warn('Facing mode constraint failed, falling back to default video input:', err);
-                this.mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                console.warn('Primary 4:3 constraint failed, falling back to 4:3 at lower resolution:', err);
+                try {
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                        audio: false,
+                        video: { facingMode: { ideal: this.currentFacingMode }, width: { ideal: 1024 }, height: { ideal: 768 } }
+                    });
+                } catch (err2) {
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                }
             }
 
             const video = this.elements.video;
@@ -284,6 +298,12 @@ const CameraCapture = {
         this.bufferCanvas.width = width;
         this.bufferCanvas.height = height;
 
+        // Read active camera track info first (needed for mirror logic below)
+        const track = this.mediaStream.getVideoTracks()[0];
+        const trackSettings = track ? track.getSettings() : {};
+        const deviceLabel = track ? (track.label || 'Connected Camera') : 'Default Camera';
+        const activeFacing = trackSettings.facingMode || this.currentFacingMode;
+
         // UI State Transitions
         if (this.elements.placeholder) this.elements.placeholder.style.display = 'none';
         if (video) video.style.display = 'block';
@@ -291,10 +311,17 @@ const CameraCapture = {
         if (this.elements.overlay) this.elements.overlay.style.display = 'block';
         if (this.elements.overlayPill) this.elements.overlayPill.style.display = 'flex';
 
+        // Apply front camera mirror ONLY to video.
+        // Canvas is left unmirrored so text reads normally; coordinates are flipped mathematically.
+        this.activeFacingMode = activeFacing;
+        const isFrontCamera = activeFacing === 'user';
+        const mirrorTransform = isFrontCamera ? 'scaleX(-1)' : '';
+        if (video) video.style.transform = mirrorTransform;
+        if (this.detectionCanvas) this.detectionCanvas.style.transform = '';
+
         // Enable action buttons
         if (this.elements.btnSwitch) this.elements.btnSwitch.disabled = false;
         if (this.elements.btnCapture) this.elements.btnCapture.disabled = false;
-        if (this.elements.btnLiveStream) this.elements.btnLiveStream.disabled = false;
 
         // Update toggle button appearance
         if (this.elements.btnToggle) {
@@ -302,12 +329,6 @@ const CameraCapture = {
             this.elements.btnToggle.classList.add('btn-stop');
             if (this.elements.btnToggleText) this.elements.btnToggleText.textContent = 'Stop Camera';
         }
-
-        // Read active camera label
-        const track = this.mediaStream.getVideoTracks()[0];
-        const trackSettings = track ? track.getSettings() : {};
-        const deviceLabel = track ? (track.label || 'Connected Camera') : 'Default Camera';
-        const activeFacing = trackSettings.facingMode || this.currentFacingMode;
 
         // Update stream telemetry
         if (this.elements.statStreamStatus) this.elements.statStreamStatus.textContent = 'Active (Live)';
@@ -332,11 +353,6 @@ const CameraCapture = {
         this.pipelineStartTime = performance.now();
         this.totalFramesIngested = 0;
         this.isDetectionInFlight = false;
-
-        if (this.elements.btnLiveStream) {
-            this.elements.btnLiveStream.classList.add('active');
-            if (this.elements.btnStreamText) this.elements.btnStreamText.textContent = 'Pipeline Active';
-        }
 
         // Update telemetry for active pipeline
         this.updateStatus('streaming', 'Pipeline Active');
@@ -369,8 +385,18 @@ const CameraCapture = {
             this.bufferCanvas.height = height;
         }
 
-        // 1. Draw video frame directly into dedicated buffer canvas
-        this.bufferCtx.drawImage(video, 0, 0, width, height);
+        // The full-res bufferCtx is intentionally NOT drawn continuously here
+        // to prevent extreme mobile CPU/GPU throttling (3.1M pixels at 10 FPS).
+        // Manual capture (captureManualSnapshot) draws from the video directly.
+
+        // 1. Downsample into dedicated YOLO canvas (reduces JPEG payload ~10x for 2048→640)
+        const yoloW = Math.min(width, this.YOLO_SEND_MAX_WIDTH);
+        const yoloH = Math.round(height * (yoloW / width));
+        if (this.yoloCanvas.width !== yoloW || this.yoloCanvas.height !== yoloH) {
+            this.yoloCanvas.width = yoloW;
+            this.yoloCanvas.height = yoloH;
+        }
+        this.yoloCtx.drawImage(video, 0, 0, yoloW, yoloH);
 
         // 2. Update Latest Frame Buffer State (In-place O(1) update)
         this.totalFramesIngested++;
@@ -422,7 +448,11 @@ const CameraCapture = {
         const startTime = performance.now();
 
         try {
-            const blob = await frame.getBlob(0.85);
+            // Use the downsampled YOLO canvas blob
+            // Lower quality to 0.70 for ultra-fast mobile encoding (virtually no impact on YOLOv8)
+            const blob = await new Promise((resolve) =>
+                this.yoloCanvas.toBlob(resolve, 'image/jpeg', 0.70)
+            );
             if (!blob || !this.isStreaming || !this.isPipelineActive) {
                 this.isDetectionInFlight = false;
                 return;
@@ -505,10 +535,15 @@ const CameraCapture = {
             const confidence = face.confidence;
 
             // Project coordinates to display space
-            const boxX = Math.round(x1 * scale + offsetX);
+            let boxX = Math.round(x1 * scale + offsetX);
             const boxY = Math.round(y1 * scale + offsetY);
             const boxW = Math.round((x2 - x1) * scale);
             const boxH = Math.round((y2 - y1) * scale);
+
+            // If front camera, mirror the X coordinate so it aligns with the CSS-mirrored video
+            if (this.activeFacingMode === 'user') {
+                boxX = displayWidth - (boxX + boxW);
+            }
 
             // 1. Semi-transparent subtle tint inside bounding box
             ctx.fillStyle = 'rgba(0, 229, 255, 0.08)';
@@ -630,11 +665,6 @@ const CameraCapture = {
         this.facesDetectedCount = 0;
         this.updateYoloTelemetry(0, 0);
 
-        if (this.elements.btnLiveStream) {
-            this.elements.btnLiveStream.classList.remove('active');
-            if (this.elements.btnStreamText) this.elements.btnStreamText.textContent = 'Resume Pipeline';
-        }
-
         if (this.isStreaming) {
             this.updateStatus('active', 'Camera Active');
             this.setPipelineStage('PAUSED', false);
@@ -712,11 +742,10 @@ const CameraCapture = {
 
         if (this.elements.btnSwitch) this.elements.btnSwitch.disabled = true;
         if (this.elements.btnCapture) this.elements.btnCapture.disabled = true;
-        if (this.elements.btnLiveStream) {
-            this.elements.btnLiveStream.disabled = true;
-            this.elements.btnLiveStream.classList.remove('active');
-            if (this.elements.btnStreamText) this.elements.btnStreamText.textContent = 'Start Stream Capture';
-        }
+
+        // Remove mirror transform when camera stops
+        if (this.elements.video) this.elements.video.style.transform = '';
+        if (this.detectionCanvas) this.detectionCanvas.style.transform = '';
 
         if (this.elements.btnToggle) {
             this.elements.btnToggle.classList.remove('btn-stop');
@@ -765,6 +794,13 @@ const CameraCapture = {
         snapCanvas.height = height;
 
         const snapCtx = snapCanvas.getContext('2d');
+        
+        // If front camera, flip the snapshot so it matches what the user saw in the mirrored preview
+        if (this.activeFacingMode === 'user') {
+            snapCtx.translate(width, 0);
+            snapCtx.scale(-1, 1);
+        }
+        
         snapCtx.drawImage(video, 0, 0, width, height);
 
         snapCanvas.toBlob((blob) => {

@@ -186,7 +186,7 @@ body {
 .viewfinder-container {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 4 / 3;
     min-height: 280px;
     background: #000000;
     border-radius: 12px;
@@ -199,8 +199,7 @@ body {
 
 @media (max-width: 640px) {
     .viewfinder-container {
-        aspect-ratio: 4 / 3;
-        min-height: 250px;
+        min-height: 220px;
     }
 }
 
@@ -403,10 +402,14 @@ body {
     .controls-group {
         width: 100%;
     }
-    .controls-group.main-actions,
-    .controls-group.capture-actions {
+    .controls-group.main-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .controls-group.capture-actions {
+        display: grid;
+        grid-template-columns: 1fr;
         gap: 8px;
     }
     .btn-control,
@@ -424,6 +427,12 @@ body {
         width: 16px;
         height: 16px;
     }
+}
+
+/* Full-width Capture Frame button (replaces 2-column layout after Pipeline button removal) */
+.btn-capture-full {
+    width: 100%;
+    justify-content: center;
 }
 
 .btn-control,
@@ -646,7 +655,7 @@ body {
 
 .captured-frame-box {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 4 / 3;
     background: #000000;
     border: 1px dashed var(--border-color);
     border-radius: 10px;

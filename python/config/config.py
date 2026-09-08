@@ -28,9 +28,9 @@ FRAME_SAMPLE_RATE = int(os.getenv("FRAME_SAMPLE_RATE", 3))
 # YOLO Face Detection settings
 YOLO_MODEL_PATH = WEIGHTS_DIR / "yolov8n-face.pt"
 YOLO_FALLBACK_MODEL = "yolov8n.pt"
-YOLO_CONFIDENCE = float(os.getenv("YOLO_CONFIDENCE", 0.70))
-MIN_FACE_CONFIDENCE = float(os.getenv("MIN_FACE_CONFIDENCE", 0.70))
+YOLO_CONFIDENCE = float(os.getenv("YOLO_CONFIDENCE", 0.45))      # Lowered from 0.70 — improves recall for distant/turned/bright-lit faces
+MIN_FACE_CONFIDENCE = float(os.getenv("MIN_FACE_CONFIDENCE", 0.45)) # Aligned with YOLO_CONFIDENCE
 YOLO_IOU = float(os.getenv("YOLO_IOU", 0.45))
-YOLO_IMAGE_SIZE = int(os.getenv("YOLO_IMAGE_SIZE", 384))
+YOLO_IMAGE_SIZE = int(os.getenv("YOLO_IMAGE_SIZE", 480))          # Balanced: faster than 640 (~2× speedup), better recall than 384
 YOLO_DEVICE = os.getenv("YOLO_DEVICE", "cpu")
 

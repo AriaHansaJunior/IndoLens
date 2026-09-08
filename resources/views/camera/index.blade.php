@@ -116,20 +116,14 @@
                     </button>
                 </div>
 
+                <!-- Capture Frame — full width row (Pipeline Active button removed; pipeline auto-starts with camera) -->
                 <div class="controls-group capture-actions">
-                    <button type="button" id="btnCaptureFrame" class="btn-control btn-capture" title="Capture Single Frame into Memory" disabled>
+                    <button type="button" id="btnCaptureFrame" class="btn-control btn-capture btn-capture-full" title="Capture Single Frame into Memory" disabled>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"/>
                             <circle cx="12" cy="12" r="3"/>
                         </svg>
                         <span>Capture Frame</span>
-                    </button>
-
-                    <button type="button" id="btnLiveStreamCapture" class="btn-control btn-stream" title="Continuous Live Frame Ingestion" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M2 12h4l3 9 6-18 3 9h4"/>
-                        </svg>
-                        <span id="btnStreamText">Start Stream Capture</span>
                     </button>
                 </div>
             </div>
