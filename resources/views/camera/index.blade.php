@@ -32,11 +32,14 @@
             
             <div class="viewfinder-container" id="viewfinderContainer">
                 
-                <!-- Live Video Element -->
-                <video id="cameraVideo" class="camera-video" playsinline autoplay muted></video>
+                <!-- Live Video Element (Hidden until stream starts) -->
+                <video id="cameraVideo" class="camera-video" playsinline autoplay muted style="display: none;"></video>
                 
+                <!-- Real-Time Face Detection Bounding Box Canvas (Hidden until stream starts) -->
+                <canvas id="detectionCanvas" class="detection-canvas" style="display: none;"></canvas>
+
                 <!-- Hidden Canvas for Memory Frame Grab -->
-                <canvas id="captureCanvas" class="hidden-canvas"></canvas>
+                <canvas id="captureCanvas" class="hidden-canvas" style="display: none;"></canvas>
 
                 <!-- Reticle Overlay / Framing Guide -->
                 <div class="viewfinder-overlay" id="viewfinderOverlay">
@@ -147,6 +150,21 @@
                 </div>
 
                 <div class="telemetry-item">
+                    <span class="telemetry-label">Pipeline Stage</span>
+                    <span class="telemetry-value highlight-stage" id="statPipelineStage">STANDBY</span>
+                </div>
+
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Faces Detected</span>
+                    <span class="telemetry-value highlight-faces" id="statFacesCount">0</span>
+                </div>
+
+                <div class="telemetry-item">
+                    <span class="telemetry-label">YOLO Inference</span>
+                    <span class="telemetry-value" id="statYoloLatency">0 ms</span>
+                </div>
+
+                <div class="telemetry-item">
                     <span class="telemetry-label">Active Device</span>
                     <span class="telemetry-value" id="statCameraDevice">None</span>
                 </div>
@@ -157,17 +175,17 @@
                 </div>
 
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Frames Captured</span>
+                    <span class="telemetry-label">Frames Ingested</span>
                     <span class="telemetry-value counter" id="statFramesCaptured">0</span>
                 </div>
 
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Capture Rate</span>
+                    <span class="telemetry-label">Pipeline Rate</span>
                     <span class="telemetry-value" id="statCaptureRate">0 FPS</span>
                 </div>
 
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Last Frame Buffer</span>
+                <div class="telemetry-item" style="grid-column: span 2;">
+                    <span class="telemetry-label">Latest Frame Buffer</span>
                     <span class="telemetry-value" id="statFrameBuffer">-</span>
                 </div>
 

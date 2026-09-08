@@ -52,7 +52,7 @@
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Age</span>
-                    <span class="meta-value">{{ $actor->age ? $actor->age . ' Years Old' : '-' }}</span>
+                    <span class="meta-value">{{ $actor->age ? $actor->age . ' Tahun' : '-' }}</span>
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Birth Date</span>

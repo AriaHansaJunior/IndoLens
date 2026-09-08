@@ -22,7 +22,15 @@ class AppServiceProvider extends ServiceProvider
                     if (function_exists('request') && request() && request()->getHost()) {
                         $clientHost = request()->getHost();
                         $parsed = parse_url($url);
-                        $port = isset($parsed['port']) ? ':'.$parsed['port'] : ':5173';
+
+                        // For laptop (localhost / 127.0.0.1), route Vite assets through port 8000 so they are 100% same-origin!
+                        // This prevents Chrome from blocking subresources on untrusted cross-origin ports.
+                        if ($clientHost === 'localhost' || $clientHost === '127.0.0.1') {
+                            $port = ':8000';
+                        } else {
+                            // For phone LAN, preserve the direct Vite port
+                            $port = isset($parsed['port']) ? ':'.$parsed['port'] : ':5173';
+                        }
                         
                         // Detect whether client or proxy is running over HTTPS
                         $isHttps = request()->isSecure() 
@@ -44,6 +52,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (request()->header('x-forwarded-proto') === 'https' || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
     }
 }
