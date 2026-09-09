@@ -103,16 +103,35 @@ pip install -r python/requirements.txt
 
 ## 🎮 How to Run IndoLens
 
-### 1. Jalankan Assets Bundler & Web Server
-Buka terminal dan jalankan:
+### 1. Jalankan Semua Service Sekaligus (Rekomendasi)
+Jalankan satu perintah untuk mengaktifkan seluruh stack IndoLens: Gateway HTTPS (:8000), Laravel Backend (:8001), Vite Dev Server (:5173), dan Python YOLO Face Detection Micro-service (:8002):
 ```bash
-# Terminal 1: Vite Dev Server
+npm run dev:all
+# Atau di Windows:
+.\dev.bat
+# Atau via composer:
+composer run dev
+```
+
+Akses aplikasi melalui:
+- **Smartphone (LAN HTTPS Kamera):** `https://192.168.20.212:8000/camera`
+- **Laptop (HTTPS):** `https://localhost:8000/camera`
+- **Laptop (HTTP):** `http://127.0.0.1:8000`
+
+### Menjalankan Service Secara Terpisah (Opsional):
+```bash
+# Terminal 1: HTTPS Gateway (Port 8000)
+npm run gateway
+
+# Terminal 2: Laravel Backend (Port 8001)
+npm run laravel
+
+# Terminal 3: Vite Dev Server (Port 5173)
 npm run dev
 
-# Terminal 2: Laravel Server
-php artisan serve
+# Terminal 4: Python YOLO Face Detector (Port 8002)
+npm run yolo
 ```
-Akses aplikasi melalui peramban di: `http://127.0.0.1:8000`
 
 ### 2. Generate FaceNet Embeddings (Python)
 Untuk membuat ulang atau memperbarui file embedding `.npy` dari dataset:

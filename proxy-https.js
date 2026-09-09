@@ -245,4 +245,14 @@ mainServer.listen(PORT, '0.0.0.0', () => {
     console.log(`[Gateway] Phone LAN HTTPS : https://192.168.20.212:${PORT}/camera`);
     console.log(`[Gateway] Laptop HTTPS    : https://localhost:${PORT}/camera`);
     console.log(`[Gateway] Laptop 127.0.0.1: https://127.0.0.1:${PORT}/camera`);
+
+    // Verify YOLO micro-service status on startup
+    const checkReq = http.get(`http://127.0.0.1:${YOLO_PORT}/health`, (res) => {
+        if (res.statusCode === 200) {
+            console.log(`[Gateway] YOLO Face Detection service is READY on port ${YOLO_PORT}`);
+        }
+    });
+    checkReq.on('error', () => {
+        console.warn(`[Gateway] WARNING: YOLO service is not running on port ${YOLO_PORT}. Run 'npm run dev:all' to start all services.`);
+    });
 });

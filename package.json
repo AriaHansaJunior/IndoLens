@@ -4,7 +4,11 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "dev:all": "concurrently -k -n \"gateway,laravel,vite,yolo\" -c \"#4ade80,#60a5fa,#f472b6,#fbbf24\" \"node proxy-https.js\" \"php artisan serve --port 8001\" \"vite\" \"python python/yolo_service.py\"",
+        "gateway": "node proxy-https.js",
+        "laravel": "php artisan serve --port 8001",
+        "yolo": "python python/yolo_service.py"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
