@@ -106,12 +106,10 @@ async def detect_faces_endpoint(request: Request):
             "faces": []
         }
 
-    # Convert BGR to RGB for YOLO detector
-    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-    img_height, img_width = img_rgb.shape[:2]
+    img_height, img_width = img_bgr.shape[:2]
 
-    # Run existing YOLO prediction pipeline
-    detections = predict_frame(img_rgb)
+    # Run existing YOLO prediction pipeline (Ultralytics natively expects BGR)
+    detections = predict_frame(img_bgr)
 
     # Format bounding box results
     serializable_faces = []

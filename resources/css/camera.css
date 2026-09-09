@@ -78,8 +78,17 @@ body {
 }
 
 @keyframes pulseGlow {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.35; transform: scale(0.85); }
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.35;
+        transform: scale(0.85);
+    }
 }
 
 .page-title {
@@ -376,8 +385,15 @@ body {
 }
 
 @keyframes slideDown {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 /* --------------------------------------------------------------------------
@@ -402,16 +418,19 @@ body {
     .controls-group {
         width: 100%;
     }
+
     .controls-group.main-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 8px;
     }
+
     .controls-group.capture-actions {
         display: grid;
         grid-template-columns: 1fr;
         gap: 8px;
     }
+
     .btn-control,
     .btn-primary {
         padding: 9px 8px;
@@ -421,6 +440,7 @@ body {
         text-align: center;
         gap: 6px;
     }
+
     .btn-control svg,
     .btn-primary svg {
         flex-shrink: 0;
@@ -674,8 +694,13 @@ body {
 }
 
 @keyframes flashCapture {
-    0% { filter: brightness(2) contrast(1.2); }
-    100% { filter: brightness(1) contrast(1); }
+    0% {
+        filter: brightness(2) contrast(1.2);
+    }
+
+    100% {
+        filter: brightness(1) contrast(1);
+    }
 }
 
 .captured-empty-placeholder {
@@ -828,4 +853,3 @@ body {
         font-size: 12.5px;
     }
 }
-

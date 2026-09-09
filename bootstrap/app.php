@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: [
             'api/actors/active',
+            'api/yolo/detect',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
