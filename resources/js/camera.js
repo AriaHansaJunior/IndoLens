@@ -1,8 +1,8 @@
 /**
- * IndoLens - Real-Time YOLO Face Detection Module (Session 3)
+ * IndoLens - Real-Time YOLO Face Detection & Actor Recognition Module (Session 5)
  * Integrates real-time camera frames with Ultralytics YOLOv8 face detection,
- * tracks face bounding boxes over the live video viewfinder, and exposes
- * bounding box coordinates without performing FaceNet or actor recognition.
+ * FaceNet InceptionResnetV1 128-D embeddings, and Euclidean distance threshold matching (0.65).
+ * Renders recognized actor names, Euclidean distances, and Known/Unknown reticles.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -34,13 +34,15 @@ const CameraCapture = {
     yoloCtx: null,
     YOLO_SEND_MAX_WIDTH: 640, // Max pixel width sent to Python YOLO service
 
-    // Real-Time YOLO Face Detection State (Session 3)
+    // Real-Time YOLO Face Detection & FaceNet State (Session 4)
     detectionCanvas: null,
     detectionCtx: null,
     isDetectionInFlight: false,
     latestDetections: [],
     facesDetectedCount: 0,
     lastYoloInferenceMs: 0,
+    lastFaceNetLatencyMs: 0,
+    facenetProcessedCount: 0,
 
     // Dedicated Latest Frame Buffer (Ready for future AI processing)
     latestFrame: {
@@ -97,7 +99,10 @@ const CameraCapture = {
             statStreamStatus: document.getElementById('statStreamStatus'),
             statPipelineStage: document.getElementById('statPipelineStage'),
             statFacesCount: document.getElementById('statFacesCount'),
+            statRecognitionStatus: document.getElementById('statRecognitionStatus'),
+            statFaceNetStatus: document.getElementById('statFaceNetStatus'),
             statYoloLatency: document.getElementById('statYoloLatency'),
+            statFaceNetLatency: document.getElementById('statFaceNetLatency'),
             statCameraDevice: document.getElementById('statCameraDevice'),
             statResolution: document.getElementById('statResolution'),
             statFramesCaptured: document.getElementById('statFramesCaptured'),
@@ -208,6 +213,8 @@ const CameraCapture = {
                 status: this.latestFrame.status,
                 facesDetected: this.facesDetectedCount,
                 yoloInferenceMs: this.lastYoloInferenceMs,
+                facenetLatencyMs: this.lastFaceNetLatencyMs,
+                facenetProcessedCount: this.facenetProcessedCount,
             })
         };
     },
@@ -356,7 +363,7 @@ const CameraCapture = {
 
         // Update telemetry for active pipeline
         this.updateStatus('streaming', 'Pipeline Active');
-        this.setPipelineStage('YOLO ACTIVE', true);
+        this.setPipelineStage('RECOGNITION ACTIVE', true);
 
         const intervalMs = Math.round(1000 / this.pipelineTargetFps); // ~100ms for 10 FPS
 
@@ -476,10 +483,17 @@ const CameraCapture = {
             if (data.status === 'success' && this.isStreaming && this.isPipelineActive) {
                 this.latestDetections = data.faces || [];
                 this.facesDetectedCount = data.faces_count || 0;
+                this.facenetProcessedCount = data.facenet_processed_count || 0;
                 this.lastYoloInferenceMs = data.inference_time_ms || totalLatencyMs;
+                this.lastFaceNetLatencyMs = data.facenet_time_ms || 0;
 
-                // Update telemetry fields
-                this.updateYoloTelemetry(this.facesDetectedCount, this.lastYoloInferenceMs);
+                // Update telemetry fields (including FaceNet vector status)
+                this.updateYoloTelemetry(
+                    this.facesDetectedCount,
+                    this.lastYoloInferenceMs,
+                    this.lastFaceNetLatencyMs,
+                    this.latestDetections
+                );
 
                 // Render bounding boxes over live viewfinder
                 this.renderBoundingBoxes(this.latestDetections, data.frame_dimensions);
@@ -545,18 +559,25 @@ const CameraCapture = {
                 boxX = displayWidth - (boxX + boxW);
             }
 
+            // Styling based on recognition status (Session 5: Known vs Unknown)
+            const isKnown = face.status === 'known';
+            const isUnknown = face.status === 'unknown';
+            const primaryColor = isKnown ? '#00FF66' : (isUnknown ? '#FF7D00' : '#00E5FF');
+            const cornerColor = isKnown ? '#00FF66' : (isUnknown ? '#FF7D00' : '#00FF66');
+            const fillColor = isKnown ? 'rgba(0, 255, 102, 0.08)' : (isUnknown ? 'rgba(255, 125, 0, 0.08)' : 'rgba(0, 229, 255, 0.08)');
+
             // 1. Semi-transparent subtle tint inside bounding box
-            ctx.fillStyle = 'rgba(0, 229, 255, 0.08)';
+            ctx.fillStyle = fillColor;
             ctx.fillRect(boxX, boxY, boxW, boxH);
 
             // 2. Primary bounding box border
-            ctx.strokeStyle = '#00E5FF';
+            ctx.strokeStyle = primaryColor;
             ctx.lineWidth = 2;
             ctx.strokeRect(boxX, boxY, boxW, boxH);
 
             // 3. High-tech corner brackets (AI reticle accent)
             const cornerLen = Math.min(16, Math.floor(Math.min(boxW, boxH) * 0.25));
-            ctx.strokeStyle = '#00FF66';
+            ctx.strokeStyle = cornerColor;
             ctx.lineWidth = 3;
             ctx.lineCap = 'round';
 
@@ -588,13 +609,19 @@ const CameraCapture = {
             ctx.lineTo(boxX + boxW, boxY + boxH - cornerLen);
             ctx.stroke();
 
-            // 4. Confidence Badge Pill above bounding box
-            const confPercent = Math.round(confidence * 100);
-            const labelText = `Face ${confPercent}%`;
+            // 4. Recognition Badge Pill above bounding box (Session 5: Actor Name & Euclidean Distance)
+            let labelText = '';
+            if (face.actor && typeof face.distance === 'number') {
+                const distStr = face.distance < 900 ? face.distance.toFixed(2) : '-';
+                labelText = `${face.actor} • ${distStr}`;
+            } else {
+                const confPercent = Math.round(confidence * 100);
+                labelText = `Face ${confPercent}%`;
+            }
 
             ctx.font = '600 11px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
             const textMetrics = ctx.measureText(labelText);
-            const badgeW = textMetrics.width + 14;
+            const badgeW = textMetrics.width + 16;
             const badgeH = 20;
             const badgeX = boxX;
             const badgeY = Math.max(4, boxY - badgeH - 4);
@@ -606,28 +633,31 @@ const CameraCapture = {
             ctx.fill();
 
             // Badge border
-            ctx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
+            ctx.strokeStyle = isKnown ? 'rgba(0, 255, 102, 0.6)' : (isUnknown ? 'rgba(255, 125, 0, 0.6)' : 'rgba(0, 229, 255, 0.5)');
             ctx.lineWidth = 1;
             ctx.stroke();
 
-            // Tiny neon indicator dot
-            ctx.fillStyle = '#00FF66';
+            // Status indicator dot
+            ctx.fillStyle = isKnown ? '#00FF66' : (isUnknown ? '#FF7D00' : '#00E5FF');
             ctx.beginPath();
-            ctx.arc(badgeX + 6, badgeY + badgeH / 2, 2.5, 0, Math.PI * 2);
+            ctx.arc(badgeX + 7, badgeY + badgeH / 2, 2.5, 0, Math.PI * 2);
             ctx.fill();
 
             // Text label
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillText(labelText, badgeX + 13, badgeY + badgeH - 5.5);
+            ctx.fillText(labelText, badgeX + 14, badgeY + badgeH - 5.5);
         });
     },
 
     /**
-     * Update YOLO Telemetry in UI
+     * Update YOLO, FaceNet, and Recognition Telemetry in UI
      */
-    updateYoloTelemetry(facesCount, inferenceMs) {
+    updateYoloTelemetry(facesCount, inferenceMs, facenetMs = 0, faces = []) {
         const countEl = this.elements.statFacesCount;
         const latencyEl = this.elements.statYoloLatency;
+        const recEl = this.elements.statRecognitionStatus;
+        const facenetStatusEl = this.elements.statFaceNetStatus;
+        const facenetLatencyEl = this.elements.statFaceNetLatency;
 
         if (countEl) {
             countEl.textContent = facesCount === 1 ? '1 Face' : `${facesCount} Faces`;
@@ -640,6 +670,45 @@ const CameraCapture = {
 
         if (latencyEl) {
             latencyEl.textContent = `${Math.round(inferenceMs)} ms`;
+        }
+
+        // Recognition status update
+        if (recEl) {
+            recEl.classList.remove('known', 'unknown');
+            if (facesCount > 0) {
+                const knownFaces = (faces || []).filter(f => f.status === 'known');
+                const unknownFaces = (faces || []).filter(f => f.status === 'unknown');
+
+                if (knownFaces.length > 0 && unknownFaces.length === 0) {
+                    recEl.textContent = knownFaces.length === 1 ? knownFaces[0].actor : `${knownFaces.length} Known`;
+                    recEl.classList.add('known');
+                } else if (knownFaces.length === 0 && unknownFaces.length > 0) {
+                    recEl.textContent = unknownFaces.length === 1 ? '1 Unknown' : `${unknownFaces.length} Unknown`;
+                    recEl.classList.add('unknown');
+                } else if (knownFaces.length > 0 && unknownFaces.length > 0) {
+                    recEl.textContent = `${knownFaces.length} Known, ${unknownFaces.length} Unknown`;
+                    recEl.classList.add('known');
+                } else {
+                    recEl.textContent = 'Processing...';
+                }
+            } else {
+                recEl.textContent = 'Standby (No Face)';
+            }
+        }
+
+        if (facenetStatusEl) {
+            if (facesCount > 0) {
+                const validEmbs = (faces || []).filter(f => f.embedding_dim === 128).length;
+                facenetStatusEl.textContent = validEmbs === 1 ? '1 Face • 128-D (OK)' : `${validEmbs} Faces • 128-D (OK)`;
+                facenetStatusEl.classList.add('active');
+            } else {
+                facenetStatusEl.textContent = 'Standby (No Face)';
+                facenetStatusEl.classList.remove('active');
+            }
+        }
+
+        if (facenetLatencyEl) {
+            facenetLatencyEl.textContent = `${Math.round(facenetMs)} ms`;
         }
     },
 
@@ -663,7 +732,8 @@ const CameraCapture = {
 
         this.latestDetections = [];
         this.facesDetectedCount = 0;
-        this.updateYoloTelemetry(0, 0);
+        this.facenetProcessedCount = 0;
+        this.updateYoloTelemetry(0, 0, 0, []);
 
         if (this.isStreaming) {
             this.updateStatus('active', 'Camera Active');
@@ -756,8 +826,12 @@ const CameraCapture = {
         // 5. Reset Telemetry
         this.updateStatus('idle', 'Camera Standby');
         this.setPipelineStage('STANDBY', false);
-        this.updateYoloTelemetry(0, 0);
+        this.updateYoloTelemetry(0, 0, 0, []);
         if (this.elements.statStreamStatus) this.elements.statStreamStatus.textContent = 'Standby';
+        if (this.elements.statRecognitionStatus) {
+            this.elements.statRecognitionStatus.textContent = 'Standby';
+            this.elements.statRecognitionStatus.classList.remove('known', 'unknown');
+        }
         if (this.elements.statCameraDevice) this.elements.statCameraDevice.textContent = 'None';
         if (this.elements.statResolution) this.elements.statResolution.textContent = '-';
         if (this.elements.statCaptureRate) this.elements.statCaptureRate.textContent = '0 FPS';

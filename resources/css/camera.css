@@ -636,6 +636,33 @@ body {
     text-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
 }
 
+.telemetry-value.highlight-facenet {
+    color: #4080FF;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.telemetry-value.highlight-facenet.active {
+    color: var(--success-green);
+    text-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
+}
+
+.telemetry-value.highlight-recognition {
+    color: #4080FF;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.telemetry-value.highlight-recognition.known {
+    color: var(--success-green);
+    text-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
+}
+
+.telemetry-value.highlight-recognition.unknown {
+    color: var(--warning-orange);
+    text-shadow: 0 0 8px rgba(255, 125, 0, 0.35);
+}
+
 .telemetry-value.counter {
     color: var(--success-green);
     font-size: 16px;

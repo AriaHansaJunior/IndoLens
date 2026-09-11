@@ -154,8 +154,23 @@
                 </div>
 
                 <div class="telemetry-item">
+                    <span class="telemetry-label">Recognition</span>
+                    <span class="telemetry-value highlight-recognition" id="statRecognitionStatus">Standby</span>
+                </div>
+
+                <div class="telemetry-item">
+                    <span class="telemetry-label">FaceNet Vector</span>
+                    <span class="telemetry-value highlight-facenet" id="statFaceNetStatus">Standby</span>
+                </div>
+
+                <div class="telemetry-item">
                     <span class="telemetry-label">YOLO Inference</span>
                     <span class="telemetry-value" id="statYoloLatency">0 ms</span>
+                </div>
+
+                <div class="telemetry-item">
+                    <span class="telemetry-label">FaceNet Latency</span>
+                    <span class="telemetry-value" id="statFaceNetLatency">0 ms</span>
                 </div>
 
                 <div class="telemetry-item">
