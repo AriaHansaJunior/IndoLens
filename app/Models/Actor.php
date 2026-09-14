@@ -41,4 +41,24 @@ class Actor extends Model
     {
         return $this->hasMany(ActorRole::class, 'actor_id');
     }
+
+    /**
+     * Get the multiple face images for this actor.
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ActorImage::class, 'actor_id');
+    }
+
+    /**
+     * Get English label for gender to maintain English UI standard.
+     */
+    public function getGenderLabelAttribute(): string
+    {
+        return match (strtolower(trim((string)$this->gender))) {
+            'laki-laki', 'male' => 'Male',
+            'perempuan', 'female' => 'Female',
+            default => $this->gender ?: '-'
+        };
+    }
 }

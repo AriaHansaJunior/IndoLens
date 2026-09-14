@@ -48,11 +48,11 @@
             <div class="meta-grid">
                 <div class="meta-item">
                     <span class="meta-label">Gender</span>
-                    <span class="meta-value">{{ $actor->gender ?? '-' }}</span>
+                    <span class="meta-value">{{ $actor->gender_label }}</span>
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Age</span>
-                    <span class="meta-value">{{ $actor->age ? $actor->age . ' Tahun' : '-' }}</span>
+                    <span class="meta-value">{{ $actor->age ? $actor->age . ' Years Old' : '-' }}</span>
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Birth Date</span>
@@ -63,6 +63,27 @@
                     <span class="meta-value">{{ $actor->birth_place ?? '-' }}</span>
                 </div>
             </div>
+
+            <!-- Filmography & Character Roles from MySQL Database -->
+            @if($actor->characters && $actor->characters->count() > 0)
+                <div class="filmography-section">
+                    <div class="section-title">Filmography &amp; Roles</div>
+                    <ul class="filmography-list">
+                        @foreach($actor->characters as $char)
+                            <li class="filmography-item">
+                                <span>
+                                    <strong>{{ $char->movie->title ?? 'Unknown Film' }}</strong>
+                                    &mdash;
+                                    <em>Role: {{ $char->character_name }}</em>
+                                </span>
+                                @if($char->movie && $char->movie->release_year)
+                                    <span class="film-year">{{ $char->movie->release_year }}</span>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
             <div class="biography-section">
                 <div class="section-title">Biography</div>

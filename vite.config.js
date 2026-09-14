@@ -38,7 +38,9 @@ export default defineConfig({
                 'resources/css/actor-detail.css',
                 'resources/js/actor-detail.js',
                 'resources/css/camera.css',
-                'resources/js/camera.js'
+                'resources/js/camera.js',
+                'resources/css/camp.css',
+                'resources/js/camp.js'
             ],
             refresh: true,
             fonts: [

@@ -43,6 +43,7 @@ const CameraCapture = {
     lastYoloInferenceMs: 0,
     lastFaceNetLatencyMs: 0,
     facenetProcessedCount: 0,
+    actorDbCache: {}, // Session 6: Cache for resolved MySQL actor records
 
     // Dedicated Latest Frame Buffer (Ready for future AI processing)
     latestFrame: {
@@ -495,6 +496,9 @@ const CameraCapture = {
                     this.latestDetections
                 );
 
+                // Session 6: Resolve recognized known actor against MySQL database record
+                this.resolveKnownActors(this.latestDetections);
+
                 // Render bounding boxes over live viewfinder
                 this.renderBoundingBoxes(this.latestDetections, data.frame_dimensions);
             }
@@ -502,6 +506,39 @@ const CameraCapture = {
             console.warn('[YOLO Detection Notice]', err.message);
         } finally {
             this.isDetectionInFlight = false;
+        }
+    },
+
+    /**
+     * Session 6: Resolve recognized actor against Laravel MySQL database.
+     * Enriches recognized known faces with real database actor record.
+     * Strict rule: When face.status === 'unknown', NO lookup is performed.
+     */
+    async resolveKnownActors(faces) {
+        if (!faces || faces.length === 0) return;
+
+        const knownFaces = faces.filter(f => f.status === 'known' && f.actor && f.actor !== 'Tidak Dikenali');
+        if (knownFaces.length === 0) return;
+
+        for (const face of knownFaces) {
+            const actorName = face.actor;
+            if (this.actorDbCache[actorName]) {
+                face.db_record = this.actorDbCache[actorName];
+                continue;
+            }
+
+            try {
+                const res = await fetch(`/api/actors/lookup?name=${encodeURIComponent(actorName)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.found && data.actor) {
+                        this.actorDbCache[actorName] = data.actor;
+                        face.db_record = data.actor;
+                    }
+                }
+            } catch (e) {
+                // Silently maintain recognized face without breaking pipeline
+            }
         }
     },
 

@@ -20,6 +20,22 @@ Route::get('/api/actors/active', [ActiveActorController::class, 'getActive']);
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
+use App\Http\Controllers\CampController;
+
+// Camp Administration Routes (Session 6)
+Route::get('/camp', [CampController::class, 'index'])->name('camp.index');
+Route::get('/camp/create', [CampController::class, 'create'])->name('camp.create');
+Route::post('/camp', [CampController::class, 'store'])->name('camp.store');
+Route::get('/camp/{id}/edit', [CampController::class, 'edit'])->name('camp.edit');
+Route::put('/camp/{id}', [CampController::class, 'update'])->name('camp.update');
+Route::delete('/camp/{id}', [CampController::class, 'destroy'])->name('camp.destroy');
+Route::get('/camp/{id}/faces', [CampController::class, 'faces'])->name('camp.faces');
+Route::post('/camp/{id}/faces', [CampController::class, 'storeFaces'])->name('camp.faces.store');
+Route::delete('/camp/{actorId}/faces/{imageId}', [CampController::class, 'destroyFace'])->name('camp.faces.destroy');
+
+// Recognition-to-Database Actor Lookup API (Session 6)
+Route::get('/api/actors/lookup', [CampController::class, 'lookup'])->name('api.actors.lookup');
+
 Route::post('/api/yolo/detect', function (Request $request) {
     try {
         $response = Http::withBody($request->getContent(), 'image/jpeg')
@@ -34,3 +50,4 @@ Route::post('/api/yolo/detect', function (Request $request) {
         ], 502);
     }
 });
+

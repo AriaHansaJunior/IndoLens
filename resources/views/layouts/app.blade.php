@@ -52,6 +52,12 @@
                         </svg>
                         <span>Camera</span>
                     </a>
+                    <a href="{{ route('camp.index') }}" class="nav-link {{ request()->routeIs('camp.*') ? 'active' : '' }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 21h18M3 7v14M21 7v14M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3M9 11v6M15 11v6"/>
+                        </svg>
+                        <span>Camp</span>
+                    </a>
                 </nav>
             </div>
 
