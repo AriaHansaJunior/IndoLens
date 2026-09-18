@@ -144,10 +144,15 @@ def main():
         for img_path in image_files:
             out_npy = out_dir / (img_path.stem + ".npy")
 
-            # ----------------------------------------------------------
-            # Step A: Baca gambar sebagai BGR numpy (sama seperti runtime)
-            # ----------------------------------------------------------
             frame = cv2.imread(str(img_path))
+            if frame is None:
+                try:
+                    from PIL import Image
+                    pil_img = Image.open(str(img_path))
+                    frame = cv2.cvtColor(np.array(pil_img.convert("RGB")), cv2.COLOR_RGB2BGR)
+                except Exception:
+                    frame = None
+
             if frame is None:
                 print(f"  [SKIP] Tidak dapat membaca: {img_path.name}")
                 actor_skipped += 1

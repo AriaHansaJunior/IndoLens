@@ -11,7 +11,7 @@ class ActiveActorController extends Controller
     /**
      * Update the real-time detection status of actors based on Python payload.
      * POST /api/actors/active
-     * Payload: { "actors": ["Bayu Skak"], "window_title": "Sekawan Limo - IDLIX - Google Chrome" }
+     * Payload: { "actors": ["Bayu Eko Moektito"], "window_title": "Sekawan Limo - IDLIX - Google Chrome" }
      */
     public function updateActive(Request $request)
     {
@@ -68,7 +68,7 @@ class ActiveActorController extends Controller
     /**
      * Fetch the list of currently detected actors for frontend polling.
      * GET /api/actors/active
-     * Returns: { "detected_actors": ["Bayu Skak"], "character_map": {"Bayu Skak": "Bagas"} }
+     * Returns: { "detected_actors": ["Bayu Eko Moektito"], "character_map": {"Bayu Eko Moektito": "Bagas"} }
      */
     public function getActive()
     {

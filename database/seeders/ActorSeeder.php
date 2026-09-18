@@ -15,7 +15,7 @@ class ActorSeeder extends Seeder
         $actors = [
             [
                 'id' => 1,
-                'full_name' => 'Bayu Skak',
+                'full_name' => 'Bayu Eko Moektito',
                 'birth_date' => '1993-11-13',
                 'birth_place' => 'Malang, Jawa Timur',
                 'age' => 31,

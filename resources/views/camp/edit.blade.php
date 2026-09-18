@@ -161,7 +161,7 @@
                 @if($actor->photo)
                     <div class="current-photo-preview">
                         <span class="preview-label">Current Photo:</span>
-                        <img src="{{ asset('storage/actors/' . $actor->photo) }}" alt="{{ $actor->full_name }}" class="photo-preview-thumb" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($actor->full_name) }}&background=0D1321&color=165DFF&size=100'">
+                        <img src="{{ asset('storage/' . $actor->photo) }}" alt="{{ $actor->full_name }}" class="photo-preview-thumb" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($actor->full_name) }}&background=0D1321&color=165DFF&size=100'">
                         <span class="current-photo-filename">{{ $actor->photo }}</span>
                     </div>
                 @endif

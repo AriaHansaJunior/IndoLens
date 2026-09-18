@@ -57,6 +57,17 @@
                     <span id="overlayFacingMode">Environment</span>
                 </div>
 
+                <!-- Session 7: Video State Indicator Pill (Overlaid on video) -->
+                <div class="video-state-pill" id="videoStatePill" style="display: none;">
+                    <span class="video-state-icon" id="videoStateIcon">▶</span>
+                    <span id="videoStateText">Video Running</span>
+                </div>
+
+                <!-- Session 7: Pause Action Overlay (DOM overlay for Open Actor Detail) -->
+                <div class="pause-action-overlay" id="pauseActionOverlay" style="display: none;">
+                    <!-- Populated dynamically by camera.js when video is paused and known actor exists -->
+                </div>
+
                 <!-- Standby / Permission Prompt Placeholder -->
                 <div class="viewfinder-placeholder" id="cameraPlaceholder">
                     <div class="placeholder-icon-wrap">
@@ -171,6 +182,12 @@
                 <div class="telemetry-item">
                     <span class="telemetry-label">FaceNet Latency</span>
                     <span class="telemetry-value" id="statFaceNetLatency">0 ms</span>
+                </div>
+
+                <!-- Session 7: Video State telemetry field -->
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Video State</span>
+                    <span class="telemetry-value highlight-video-state" id="statVideoState">Idle</span>
                 </div>
 
                 <div class="telemetry-item">

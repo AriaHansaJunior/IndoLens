@@ -28,7 +28,7 @@
                 
                 <div class="card-image-wrapper">
                     <!-- Assuming photo contains filename like 'bayu_skak.jpg'. Adjust path based on your storage structure -->
-                    <img src="{{ asset('storage/actors/' . $actor->photo) }}" alt="{{ $actor->full_name }}" class="actor-photo" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($actor->full_name) }}&background=0D1321&color=165DFF&size=400'">
+                    <img src="{{ asset('storage/' . $actor->photo) }}" alt="{{ $actor->full_name }}" class="actor-photo" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($actor->full_name) }}&background=0D1321&color=165DFF&size=400'">
                 </div>
                 
                 <div class="card-content">

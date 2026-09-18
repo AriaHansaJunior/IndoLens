@@ -57,7 +57,7 @@
                     id="full_name" 
                     name="full_name" 
                     class="form-input @error('full_name') input-error @enderror" 
-                    placeholder="e.g. Bayu Skak" 
+                    placeholder="e.g. Bayu Eko Moektito" 
                     value="{{ old('full_name') }}" 
                     required 
                     autocomplete="off"

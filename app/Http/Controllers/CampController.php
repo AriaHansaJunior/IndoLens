@@ -67,21 +67,13 @@ class CampController extends Controller
                 ? (int) $request->input('age')
                 : ($request->filled('birth_date') ? Carbon::parse($request->input('birth_date'))->age : null);
 
-            // Handle optional primary photo upload
-            $photoFilename = null;
-            if ($request->hasFile('photo')) {
-                $file = $request->file('photo');
-                $photoFilename = Str::slug($request->input('full_name')) . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('actors', $photoFilename, 'public');
-            }
-
-            Actor::create([
+            $actor = Actor::create([
                 'full_name' => trim($request->input('full_name')),
                 'gender' => $gender,
                 'birth_date' => $request->input('birth_date') ?: null,
                 'birth_place' => $request->input('birth_place') ? trim($request->input('birth_place')) : null,
                 'age' => $age,
-                'photo' => $photoFilename,
+                'photo' => null,
                 'biography' => $request->input('biography') ? trim($request->input('biography')) : null,
                 'instagram' => $request->input('instagram') ? trim($request->input('instagram')) : null,
                 'wikipedia' => $request->input('wikipedia') ? trim($request->input('wikipedia')) : null,
@@ -120,8 +112,15 @@ class CampController extends Controller
                 ? (int) $request->input('age')
                 : ($request->filled('birth_date') ? Carbon::parse($request->input('birth_date'))->age : null);
 
+            // Handle potential name change which changes the directory slug
+            $oldSlug = Str::slug($actor->full_name);
+            $newFullName = trim($request->input('full_name'));
+            $newSlug = Str::slug($newFullName);
+            $oldDirName = "actor-images/{$actor->id}-{$oldSlug}";
+            $newDirName = "actor-images/{$actor->id}-{$newSlug}";
+
             $data = [
-                'full_name' => trim($request->input('full_name')),
+                'full_name' => $newFullName,
                 'gender' => $gender,
                 'birth_date' => $request->input('birth_date') ?: null,
                 'birth_place' => $request->input('birth_place') ? trim($request->input('birth_place')) : null,
@@ -132,18 +131,36 @@ class CampController extends Controller
                 'imdb' => $request->input('imdb') ? trim($request->input('imdb')) : null,
             ];
 
+            // If name changed, rename directory in storage and update DB paths
+            if ($oldSlug !== $newSlug && Storage::disk('public')->exists($oldDirName)) {
+                Storage::disk('public')->move($oldDirName, $newDirName);
+                
+                // Update primary photo path in $data if it exists
+                if ($actor->photo && str_starts_with($actor->photo, $oldDirName)) {
+                    $data['photo'] = str_replace($oldDirName, $newDirName, $actor->photo);
+                }
+
+                // Update face image paths directly in DB
+                $actor->images()->get()->each(function ($img) use ($oldDirName, $newDirName) {
+                    if ($img->image && str_starts_with($img->image, $oldDirName)) {
+                        $img->update(['image' => str_replace($oldDirName, $newDirName, $img->image)]);
+                    }
+                });
+            }
+
             // If a new photo is uploaded, replace existing photo
             if ($request->hasFile('photo')) {
                 $file = $request->file('photo');
-                $photoFilename = Str::slug($request->input('full_name')) . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('actors', $photoFilename, 'public');
+                $photoFilename = 'profile_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->storeAs($newDirName, $photoFilename, 'public');
 
                 // Clean up old photo file if it exists
-                if ($actor->photo && Storage::disk('public')->exists('actors/' . $actor->photo)) {
-                    Storage::disk('public')->delete('actors/' . $actor->photo);
+                $currentPhoto = $data['photo'] ?? $actor->photo;
+                if ($currentPhoto && Storage::disk('public')->exists($currentPhoto)) {
+                    Storage::disk('public')->delete($currentPhoto);
                 }
 
-                $data['photo'] = $photoFilename;
+                $data['photo'] = $newDirName . '/' . $photoFilename;
             }
 
             $actor->update($data);
@@ -167,16 +184,22 @@ class CampController extends Controller
             // Delete actor record (cascades actor_images in DB)
             $actor->delete();
 
-            // Unlink face image files from storage
-            foreach ($faceImages as $img) {
-                if ($img->image && Storage::disk('public')->exists('actors/faces/' . $img->image)) {
-                    Storage::disk('public')->delete('actors/faces/' . $img->image);
+            // Unlink the entire actor directory
+            $slug = Str::slug($actor->full_name);
+            $dirName = "actor-images/{$actor->id}-{$slug}";
+            
+            if (Storage::disk('public')->exists($dirName)) {
+                Storage::disk('public')->deleteDirectory($dirName);
+            } else {
+                // Fallback for legacy files
+                foreach ($faceImages as $img) {
+                    if ($img->image && Storage::disk('public')->exists('actors/faces/' . $img->image)) {
+                        Storage::disk('public')->delete('actors/faces/' . $img->image);
+                    }
                 }
-            }
-
-            // Unlink primary photo from storage if present
-            if ($primaryPhoto && Storage::disk('public')->exists('actors/' . $primaryPhoto)) {
-                Storage::disk('public')->delete('actors/' . $primaryPhoto);
+                if ($primaryPhoto && Storage::disk('public')->exists('actors/' . $primaryPhoto)) {
+                    Storage::disk('public')->delete('actors/' . $primaryPhoto);
+                }
             }
         });
 
@@ -202,23 +225,50 @@ class CampController extends Controller
 
         $request->validate([
             'images' => ['required', 'array', 'min:1'],
-            'images.*' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png'],
+            'images.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,avif'],
         ], [
             'images.required' => 'Please select at least one face image to upload.',
-            'images.*.image' => 'The uploaded file must be a valid image.',
-            'images.*.mimes' => 'Only .jpg, .jpeg, and .png images are allowed.',
+            'images.*.mimes' => 'Only .jpg, .jpeg, .png, .webp, and .avif images are allowed.',
         ]);
 
         DB::transaction(function () use ($request, $actor) {
             $files = $request->file('images', []);
+            $slug = Str::slug($actor->full_name);
+            $dirName = "actor-images/{$actor->id}-{$slug}";
+            
+            // Collect existing file hashes to prevent duplicates
+            $existingHashes = [];
+            foreach ($actor->images as $img) {
+                $path = storage_path('app/public/' . $img->image);
+                if (file_exists($path)) {
+                    $existingHashes[md5_file($path)] = true;
+                }
+            }
+
+            $index = 1;
+
             foreach ($files as $file) {
-                $filename = Str::slug($actor->full_name) . '_face_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('actors/faces', $filename, 'public');
+                // Prevent exact duplicates
+                $hash = md5_file($file->path());
+                if (isset($existingHashes[$hash])) {
+                    continue; // Skip this file as it is a duplicate
+                }
+
+                // Find next available sequential filename
+                do {
+                    $filename = sprintf('%s-%02d.%s', $slug, $index, $file->getClientOriginalExtension());
+                    $index++;
+                } while (Storage::disk('public')->exists($dirName . '/' . $filename));
+
+                $file->storeAs($dirName, $filename, 'public');
 
                 ActorImage::create([
                     'actor_id' => $actor->id,
-                    'image' => $filename,
+                    'image' => $dirName . '/' . $filename,
                 ]);
+
+                // Track the newly added file's hash to prevent duplicates within the same batch
+                $existingHashes[$hash] = true;
             }
         });
 
@@ -233,12 +283,49 @@ class CampController extends Controller
         $actor = Actor::findOrFail($actorId);
         $imageRecord = ActorImage::where('actor_id', $actor->id)->where('id', $imageId)->firstOrFail();
 
-        DB::transaction(function () use ($imageRecord) {
+        DB::transaction(function () use ($actor, $imageRecord) {
             $filename = $imageRecord->image;
             $imageRecord->delete();
 
-            if ($filename && Storage::disk('public')->exists('actors/faces/' . $filename)) {
+            if ($filename && Storage::disk('public')->exists($filename)) {
+                Storage::disk('public')->delete($filename);
+            } elseif ($filename && Storage::disk('public')->exists('actors/faces/' . $filename)) {
+                // Fallback for legacy files
                 Storage::disk('public')->delete('actors/faces/' . $filename);
+            }
+            
+            // Optimized re-sequence: move the highest numbered file to fill the gap
+            $deletedNumber = -1;
+            if (preg_match('/-(\d+)\.[a-zA-Z0-9]+$/', $filename, $matches)) {
+                $deletedNumber = (int)$matches[1];
+            }
+            
+            $remainingImages = ActorImage::where('actor_id', $actor->id)->get();
+            $maxImage = null;
+            $maxNumber = -1;
+            
+            foreach ($remainingImages as $img) {
+                if (preg_match('/-(\d+)\.[a-zA-Z0-9]+$/', $img->image, $matches)) {
+                    $num = (int)$matches[1];
+                    if ($num > $maxNumber) {
+                        $maxNumber = $num;
+                        $maxImage = $img;
+                    }
+                }
+            }
+            
+            if ($maxImage && $deletedNumber > 0 && $maxNumber > $deletedNumber) {
+                $ext = pathinfo($maxImage->image, PATHINFO_EXTENSION);
+                $slug = Str::slug($actor->full_name);
+                $dirName = "actor-images/{$actor->id}-{$slug}";
+                
+                $newFileName = sprintf('%s-%02d.%s', $slug, $deletedNumber, $ext);
+                $newPath = $dirName . '/' . $newFileName;
+                
+                if (Storage::disk('public')->exists($maxImage->image)) {
+                    Storage::disk('public')->move($maxImage->image, $newPath);
+                    $maxImage->update(['image' => $newPath]);
+                }
             }
         });
 
@@ -281,7 +368,7 @@ class CampController extends Controller
                 'birth_date' => $actor->birth_date ? Carbon::parse($actor->birth_date)->format('F d, Y') : null,
                 'birth_place' => $actor->birth_place,
                 'photo' => $actor->photo,
-                'photo_url' => $actor->photo ? asset('storage/actors/' . $actor->photo) : null,
+                'photo_url' => $actor->photo ? asset('storage/' . $actor->photo) : null,
             ],
         ]);
     }

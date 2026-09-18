@@ -3,6 +3,10 @@
  * Integrates real-time camera frames with Ultralytics YOLOv8 face detection,
  * FaceNet InceptionResnetV1 128-D embeddings, and Euclidean distance threshold matching (0.65).
  * Renders recognized actor names, Euclidean distances, and Known/Unknown reticles.
+ *
+ * Session 7: Video Running vs Pause — Frame-Difference State Detection
+ * Detects whether the captured external video is changing (running) or stable (paused)
+ * using lightweight pixel-level frame differencing on the existing yoloCanvas.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,6 +48,13 @@ const CameraCapture = {
     lastFaceNetLatencyMs: 0,
     facenetProcessedCount: 0,
     actorDbCache: {}, // Session 6: Cache for resolved MySQL actor records
+
+    // Session 7: Video State Detection (Frame Difference)
+    videoState: 'idle',                    // 'idle' | 'running' | 'paused'
+    prevFrameData: null,                   // Previous frame's pixel data (Uint8ClampedArray)
+    consecutiveStableFrames: 0,            // Counter for consecutive stable frames
+    PAUSE_DIFF_THRESHOLD: 2.5,             // Mean pixel difference threshold for pause detection
+    PAUSE_CONSECUTIVE_REQUIRED: 8,         // Number of consecutive stable frames required (~0.8s at 10 FPS)
 
     // Dedicated Latest Frame Buffer (Ready for future AI processing)
     latestFrame: {
@@ -118,6 +129,13 @@ const CameraCapture = {
             metaTimestamp: document.getElementById('metaTimestamp'),
             metaDimensions: document.getElementById('metaDimensions'),
             metaFormat: document.getElementById('metaFormat'),
+
+            // Session 7: Video State elements
+            videoStatePill: document.getElementById('videoStatePill'),
+            videoStateIcon: document.getElementById('videoStateIcon'),
+            videoStateText: document.getElementById('videoStateText'),
+            pauseActionOverlay: document.getElementById('pauseActionOverlay'),
+            statVideoState: document.getElementById('statVideoState'),
         };
     },
 
@@ -132,8 +150,9 @@ const CameraCapture = {
 
         // YOLO canvas: fixed-width offscreen canvas for fast payload to Python service.
         // Viewfinder is NOT affected — only inference input is downsampled.
+        // Session 7: willReadFrequently=true for efficient getImageData in frame-difference
         this.yoloCanvas = document.createElement('canvas');
-        this.yoloCtx = this.yoloCanvas.getContext('2d');
+        this.yoloCtx = this.yoloCanvas.getContext('2d', { willReadFrequently: true });
     },
 
     /**
@@ -216,6 +235,7 @@ const CameraCapture = {
                 yoloInferenceMs: this.lastYoloInferenceMs,
                 facenetLatencyMs: this.lastFaceNetLatencyMs,
                 facenetProcessedCount: this.facenetProcessedCount,
+                videoState: this.videoState, // Session 7
             })
         };
     },
@@ -362,9 +382,19 @@ const CameraCapture = {
         this.totalFramesIngested = 0;
         this.isDetectionInFlight = false;
 
+        // Session 7: Reset frame-difference state on pipeline start
+        this.prevFrameData = null;
+        this.consecutiveStableFrames = 0;
+        this.setVideoState('idle');
+
         // Update telemetry for active pipeline
         this.updateStatus('streaming', 'Pipeline Active');
         this.setPipelineStage('RECOGNITION ACTIVE', true);
+
+        // Session 7: Show video state pill
+        if (this.elements.videoStatePill) {
+            this.elements.videoStatePill.style.display = 'flex';
+        }
 
         const intervalMs = Math.round(1000 / this.pipelineTargetFps); // ~100ms for 10 FPS
 
@@ -406,10 +436,14 @@ const CameraCapture = {
         }
         this.yoloCtx.drawImage(video, 0, 0, yoloW, yoloH);
 
+        // Session 7: Frame-Difference State Detection (reuses yoloCanvas)
+        this.computeFrameDifference(yoloW, yoloH);
+
         // 2. Update Latest Frame Buffer State (In-place O(1) update)
         this.totalFramesIngested++;
         this.latestFrame.frameNumber = this.totalFramesIngested;
         this.latestFrame.timestamp = Date.now();
+        this.latestFrame.captureTime = performance.now();
         this.latestFrame.width = width;
         this.latestFrame.height = height;
         this.latestFrame.status = 'READY_FOR_YOLO';
@@ -420,7 +454,7 @@ const CameraCapture = {
         }
 
         if (this.elements.statFrameBuffer) {
-            this.elements.statFrameBuffer.textContent = `${width} × ${height} px • Frame #${this.totalFramesIngested} (Ready)`;
+            this.elements.statFrameBuffer.textContent = `${width} × ${height} px · Frame #${this.totalFramesIngested} (Ready)`;
         }
 
         // Calculate live acquisition rate (FPS)
@@ -432,10 +466,192 @@ const CameraCapture = {
             }
         }
 
-        // 4. DISPATCH FRAME TO YOLO FACE DETECTION (Session 3)
+        // 4. DISPATCH FRAME TO YOLO FACE DETECTION (Session 3 & 7)
+        // Set the latest frame as pending, explicitly discarding any stale pending frames
+        const newFrame = this.getLatestFrame();
+        if (this.isDetectionInFlight && this.pendingYoloFrame) {
+            console.log(`[Latest-Frame-Wins] DISCARD Frame #${this.pendingYoloFrame.frameNumber} in favor of Frame #${newFrame.frameNumber}`);
+        }
+        this.pendingYoloFrame = newFrame;
+
         if (!this.isDetectionInFlight) {
             this.triggerYoloDetection();
         }
+    },
+
+    /**
+     * Session 7: Lightweight Frame-Difference Computation
+     * Compares current yoloCanvas pixels against stored previous frame.
+     * Uses strided RGB sampling for sub-millisecond performance.
+     * Determines 'running' vs 'paused' video state.
+     */
+    computeFrameDifference(yoloW, yoloH) {
+        const currentImageData = this.yoloCtx.getImageData(0, 0, yoloW, yoloH);
+        const currentData = currentImageData.data; // Uint8ClampedArray (RGBA)
+
+        if (!this.prevFrameData || this.prevFrameData.length !== currentData.length) {
+            // First frame or resolution changed — store and mark as running
+            this.prevFrameData = new Uint8ClampedArray(currentData);
+            this.consecutiveStableFrames = 0;
+            if (this.videoState === 'idle') {
+                this.setVideoState('running');
+            }
+            return;
+        }
+
+        // Fast strided sampling: sample every 8th pixel for speed (<0.3ms on mobile)
+        const stride = 8 * 4; // 8 pixels × 4 channels (RGBA)
+        let totalDiff = 0;
+        let sampleCount = 0;
+
+        for (let i = 0; i < currentData.length; i += stride) {
+            // Compare RGB only (skip alpha channel at i+3)
+            totalDiff += Math.abs(currentData[i] - this.prevFrameData[i]);       // R
+            totalDiff += Math.abs(currentData[i + 1] - this.prevFrameData[i + 1]); // G
+            totalDiff += Math.abs(currentData[i + 2] - this.prevFrameData[i + 2]); // B
+            sampleCount += 3;
+        }
+
+        const meanDiff = sampleCount > 0 ? totalDiff / sampleCount : 0;
+
+        // Session 7: Temporary diagnostic logging for pause detection tuning
+        if (this.totalFramesIngested % 5 === 0) {
+            console.log(`[Diagnostic] Video State: ${this.videoState} | Consecutive: ${this.consecutiveStableFrames} | Mean Diff: ${meanDiff.toFixed(3)}`);
+        }
+
+        // Store current frame as previous for next comparison
+        this.prevFrameData = new Uint8ClampedArray(currentData);
+
+        // State determination
+        if (meanDiff <= this.PAUSE_DIFF_THRESHOLD) {
+            this.consecutiveStableFrames++;
+            if (this.consecutiveStableFrames >= this.PAUSE_CONSECUTIVE_REQUIRED && this.videoState !== 'paused') {
+                this.setVideoState('paused');
+            }
+        } else {
+            this.consecutiveStableFrames = 0;
+            if (this.videoState !== 'running') {
+                this.setVideoState('running');
+            }
+        }
+    },
+
+    /**
+     * Session 7: Set Video State and Update All Related UI
+     * Manages state pill, telemetry field, and pause action overlay.
+     */
+    setVideoState(state) {
+        const prevState = this.videoState;
+        this.videoState = state;
+
+        // Update Video State Pill
+        const pill = this.elements.videoStatePill;
+        if (pill) {
+            pill.classList.remove('running', 'paused');
+
+            if (state === 'running') {
+                pill.classList.add('running');
+                if (this.elements.videoStateIcon) this.elements.videoStateIcon.textContent = '▶';
+                if (this.elements.videoStateText) this.elements.videoStateText.textContent = 'Video Running';
+            } else if (state === 'paused') {
+                pill.classList.add('paused');
+                if (this.elements.videoStateIcon) this.elements.videoStateIcon.textContent = '⏸';
+                if (this.elements.videoStateText) this.elements.videoStateText.textContent = 'Video Paused';
+            } else {
+                // idle
+                if (this.elements.videoStateIcon) this.elements.videoStateIcon.textContent = '▶';
+                if (this.elements.videoStateText) this.elements.videoStateText.textContent = 'Idle';
+            }
+        }
+
+        // Update Telemetry Video State field
+        const statEl = this.elements.statVideoState;
+        if (statEl) {
+            statEl.classList.remove('state-running', 'state-paused');
+
+            if (state === 'running') {
+                statEl.textContent = 'Running';
+                statEl.classList.add('state-running');
+            } else if (state === 'paused') {
+                statEl.textContent = 'Paused';
+                statEl.classList.add('state-paused');
+            } else {
+                statEl.textContent = 'Idle';
+            }
+        }
+
+        // Manage Pause Action Overlay
+        if (state === 'paused') {
+            this.showPauseActionOverlay();
+        } else {
+            this.hidePauseActionOverlay();
+        }
+    },
+
+    /**
+     * Session 7: Show Pause Action Overlay for Recognized Known Actors
+     * Only displays for faces with status === 'known' AND db_record.id exists.
+     */
+    showPauseActionOverlay() {
+        const overlay = this.elements.pauseActionOverlay;
+        if (!overlay) return;
+
+        // Find the first known actor with a database record
+        const knownWithRecord = (this.latestDetections || []).find(
+            f => f.status === 'known' && f.db_record && f.db_record.id
+        );
+
+        if (!knownWithRecord) {
+            // No known actor with db record — hide overlay
+            overlay.style.display = 'none';
+            overlay.innerHTML = '';
+            return;
+        }
+
+        const actorName = knownWithRecord.actor || 'Unknown Actor';
+        const actorId = knownWithRecord.db_record.id;
+        const distStr = typeof knownWithRecord.distance === 'number' && knownWithRecord.distance < 900
+            ? knownWithRecord.distance.toFixed(3)
+            : '-';
+
+        overlay.innerHTML = `
+            <div class="pause-action-card">
+                <div class="pause-action-header">
+                    <span class="pause-action-dot"></span>
+                    <span class="pause-action-actor-name">${this.escapeHtml(actorName)}</span>
+                </div>
+                <span class="pause-action-status">Recognized · Distance ${distStr}</span>
+                <a href="/actors/${actorId}" class="pause-action-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Open Actor Detail
+                </a>
+            </div>
+        `;
+
+        overlay.style.display = 'flex';
+    },
+
+    /**
+     * Session 7: Hide and Clear Pause Action Overlay
+     */
+    hidePauseActionOverlay() {
+        const overlay = this.elements.pauseActionOverlay;
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.innerHTML = '';
+        }
+    },
+
+    /**
+     * Session 7: HTML Escape utility to prevent XSS in actor names
+     */
+    escapeHtml(str) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
     },
 
     /**
@@ -445,15 +661,19 @@ const CameraCapture = {
      */
     async triggerYoloDetection() {
         if (!this.isStreaming || !this.isPipelineActive || this.isDetectionInFlight) return;
+        if (!this.pendingYoloFrame) return;
 
-        const frame = (window.IndoLensPipeline && typeof window.IndoLensPipeline.getLatestFrame === 'function')
-            ? window.IndoLensPipeline.getLatestFrame()
-            : this.getLatestFrame();
+        // Consume the newest pending frame and discard any older ones automatically
+        const frame = this.pendingYoloFrame;
+        this.pendingYoloFrame = null;
 
         if (!frame || !frame.canvas || !frame.width || !frame.height) return;
 
         this.isDetectionInFlight = true;
-        const startTime = performance.now();
+        console.log(`[Latest-Frame-Wins] Frame #${frame.frameNumber} -> PROCESSING`);
+
+        const t_capture = frame.captureTime || performance.now();
+        const t_jpeg_start = performance.now();
 
         try {
             // Use the downsampled YOLO canvas blob
@@ -461,11 +681,14 @@ const CameraCapture = {
             const blob = await new Promise((resolve) =>
                 this.yoloCanvas.toBlob(resolve, 'image/jpeg', 0.70)
             );
+            const t_jpeg_ready = performance.now();
+
             if (!blob || !this.isStreaming || !this.isPipelineActive) {
                 this.isDetectionInFlight = false;
                 return;
             }
 
+            const t_req_sent = performance.now();
             const response = await fetch('/api/yolo/detect', {
                 method: 'POST',
                 headers: {
@@ -473,19 +696,20 @@ const CameraCapture = {
                 },
                 body: blob
             });
+            const t_yolo_resp = performance.now();
 
             if (!response.ok) {
                 throw new Error(`YOLO detection failed (HTTP ${response.status})`);
             }
 
             const data = await response.json();
-            const totalLatencyMs = Math.round(performance.now() - startTime);
+            const t_rec_complete = performance.now();
 
             if (data.status === 'success' && this.isStreaming && this.isPipelineActive) {
                 this.latestDetections = data.faces || [];
                 this.facesDetectedCount = data.faces_count || 0;
                 this.facenetProcessedCount = data.facenet_processed_count || 0;
-                this.lastYoloInferenceMs = data.inference_time_ms || totalLatencyMs;
+                this.lastYoloInferenceMs = data.inference_time_ms || Math.round(t_yolo_resp - t_req_sent);
                 this.lastFaceNetLatencyMs = data.facenet_time_ms || 0;
 
                 // Update telemetry fields (including FaceNet vector status)
@@ -497,15 +721,40 @@ const CameraCapture = {
                 );
 
                 // Session 6: Resolve recognized known actor against MySQL database record
-                this.resolveKnownActors(this.latestDetections);
+                const t_db_start = performance.now();
+                await this.resolveKnownActors(this.latestDetections);
+                const t_db_resolve = performance.now();
 
                 // Render bounding boxes over live viewfinder
                 this.renderBoundingBoxes(this.latestDetections, data.frame_dimensions);
+                const t_rendered = performance.now();
+
+                // Complete pipeline telemetry instrumentation (Capture -> Render)
+                const visibleLatency = Math.round(t_rendered - t_capture);
+                console.log(`[Pipeline Latency] Frame #${frame.frameNumber} Visible: ${visibleLatency}ms | Breakdown:
+  Frame captured -> JPEG ready : ${(t_jpeg_ready - t_capture).toFixed(1)} ms (toBlob: ${(t_jpeg_ready - t_jpeg_start).toFixed(1)} ms)
+  Request sent -> YOLO response: ${(t_yolo_resp - t_req_sent).toFixed(1)} ms
+    └ Server YOLO Inference    : ${data.yolo_time_ms ?? '-'} ms
+    └ Server FaceNet Complete  : ${data.facenet_time_ms ?? '-'} ms
+    └ Server Recognition Match : ${data.recognition_time_ms ?? '-'} ms
+  DB Resolve complete          : ${(t_db_resolve - t_db_start).toFixed(1)} ms
+  Overlay rendered             : ${(t_rendered - t_db_resolve).toFixed(1)} ms
+  Actual Visible Latency (Capture -> Render): ${visibleLatency} ms`);
+
+                // Session 7: If currently paused, refresh overlay with latest detections
+                if (this.videoState === 'paused') {
+                    this.showPauseActionOverlay();
+                }
             }
         } catch (err) {
             console.warn('[YOLO Detection Notice]', err.message);
         } finally {
             this.isDetectionInFlight = false;
+
+            // Immediately process the newest pending frame if available (Latest-Frame-Wins)
+            if (this.pendingYoloFrame) {
+                this.triggerYoloDetection();
+            }
         }
     },
 
@@ -517,12 +766,13 @@ const CameraCapture = {
     async resolveKnownActors(faces) {
         if (!faces || faces.length === 0) return;
 
-        const knownFaces = faces.filter(f => f.status === 'known' && f.actor && f.actor !== 'Tidak Dikenali');
+        const knownFaces = faces.filter(f => f.status === 'known' && f.actor && f.actor !== 'Unknown');
+
         if (knownFaces.length === 0) return;
 
         for (const face of knownFaces) {
             const actorName = face.actor;
-            if (this.actorDbCache[actorName]) {
+            if (this.actorDbCache[actorName] !== undefined) {
                 face.db_record = this.actorDbCache[actorName];
                 continue;
             }
@@ -531,13 +781,14 @@ const CameraCapture = {
                 const res = await fetch(`/api/actors/lookup?name=${encodeURIComponent(actorName)}`);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.found && data.actor) {
-                        this.actorDbCache[actorName] = data.actor;
-                        face.db_record = data.actor;
-                    }
+                    const record = (data.found && data.actor) ? data.actor : null;
+                    this.actorDbCache[actorName] = record;
+                    face.db_record = record;
+                } else {
+                    this.actorDbCache[actorName] = null;
                 }
             } catch (e) {
-                // Silently maintain recognized face without breaking pipeline
+                this.actorDbCache[actorName] = null;
             }
         }
     },
@@ -650,7 +901,7 @@ const CameraCapture = {
             let labelText = '';
             if (face.actor && typeof face.distance === 'number') {
                 const distStr = face.distance < 900 ? face.distance.toFixed(2) : '-';
-                labelText = `${face.actor} • ${distStr}`;
+                labelText = `${face.actor} · ${distStr}`;
             } else {
                 const confPercent = Math.round(confidence * 100);
                 labelText = `Face ${confPercent}%`;
@@ -736,7 +987,7 @@ const CameraCapture = {
         if (facenetStatusEl) {
             if (facesCount > 0) {
                 const validEmbs = (faces || []).filter(f => f.embedding_dim === 128).length;
-                facenetStatusEl.textContent = validEmbs === 1 ? '1 Face • 128-D (OK)' : `${validEmbs} Faces • 128-D (OK)`;
+                facenetStatusEl.textContent = validEmbs === 1 ? '1 Face · 128-D (OK)' : `${validEmbs} Faces · 128-D (OK)`;
                 facenetStatusEl.classList.add('active');
             } else {
                 facenetStatusEl.textContent = 'Standby (No Face)';
@@ -771,6 +1022,12 @@ const CameraCapture = {
         this.facesDetectedCount = 0;
         this.facenetProcessedCount = 0;
         this.updateYoloTelemetry(0, 0, 0, []);
+
+        // Session 7: Reset video state
+        this.prevFrameData = null;
+        this.consecutiveStableFrames = 0;
+        this.setVideoState('idle');
+        if (this.elements.videoStatePill) this.elements.videoStatePill.style.display = 'none';
 
         if (this.isStreaming) {
             this.updateStatus('active', 'Camera Active');
@@ -873,6 +1130,10 @@ const CameraCapture = {
         if (this.elements.statResolution) this.elements.statResolution.textContent = '-';
         if (this.elements.statCaptureRate) this.elements.statCaptureRate.textContent = '0 FPS';
         if (this.elements.statFrameBuffer) this.elements.statFrameBuffer.textContent = '-';
+
+        // Session 7: Ensure video state pill and overlay are hidden
+        if (this.elements.videoStatePill) this.elements.videoStatePill.style.display = 'none';
+        this.hidePauseActionOverlay();
     },
 
     /**
@@ -977,6 +1238,7 @@ const CameraCapture = {
         return {
             frameNumber: this.latestFrame.frameNumber,
             timestamp: this.latestFrame.timestamp,
+            captureTime: this.latestFrame.captureTime || performance.now(),
             width: this.latestFrame.width,
             height: this.latestFrame.height,
             status: this.latestFrame.status,
@@ -1079,4 +1341,3 @@ window.IndoLensPipeline = {
     start: () => CameraCapture.startPipeline(),
     stop: () => CameraCapture.stopPipeline(),
 };
-

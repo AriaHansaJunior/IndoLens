@@ -158,15 +158,37 @@ const CampManager = {
         const deleteFaceForm = document.getElementById('deleteFaceForm');
         const btnCancelDeleteFace = document.getElementById('btnCancelDeleteFace');
 
-        if (fileInput) {
+            if (fileInput) {
             fileInput.addEventListener('change', () => {
-                this.renderSelectedFiles(fileInput.files, previewContainer, countText, grid, btnUploadTrigger);
+                this.renderSelectedFiles(fileInput.files, previewContainer, countText, grid, btnUploadTrigger, fileInput);
             });
 
-            if (btnClear) {
+            // Clear selection confirmation
+            const clearSelectionModal = document.getElementById('clearSelectionModal');
+            const btnCancelClearSelection = document.getElementById('btnCancelClearSelection');
+            const btnProceedClearSelection = document.getElementById('btnProceedClearSelection');
+
+            if (btnClear && clearSelectionModal) {
                 btnClear.addEventListener('click', () => {
-                    fileInput.value = '';
-                    this.renderSelectedFiles([], previewContainer, countText, grid, btnUploadTrigger);
+                    clearSelectionModal.style.display = 'flex';
+                });
+
+                if (btnCancelClearSelection) {
+                    btnCancelClearSelection.addEventListener('click', () => {
+                        clearSelectionModal.style.display = 'none';
+                    });
+                }
+
+                if (btnProceedClearSelection) {
+                    btnProceedClearSelection.addEventListener('click', () => {
+                        fileInput.value = '';
+                        this.renderSelectedFiles(fileInput.files, previewContainer, countText, grid, btnUploadTrigger, fileInput);
+                        clearSelectionModal.style.display = 'none';
+                    });
+                }
+
+                clearSelectionModal.addEventListener('click', (e) => {
+                    if (e.target === clearSelectionModal) clearSelectionModal.style.display = 'none';
                 });
             }
 
@@ -185,6 +207,12 @@ const CampManager = {
                         e.preventDefault();
                         e.stopPropagation();
                         dropzone.classList.remove('dragover');
+                        
+                        if (eventName === 'drop' && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            fileInput.files = e.dataTransfer.files;
+                            const event = new Event('change', { bubbles: true });
+                            fileInput.dispatchEvent(event);
+                        }
                     });
                 });
             }
@@ -250,7 +278,7 @@ const CampManager = {
         }
     },
 
-    renderSelectedFiles(files, container, countText, grid, btnTrigger) {
+    renderSelectedFiles(files, container, countText, grid, btnTrigger, fileInput) {
         if (!container || !countText || !grid) return;
 
         grid.innerHTML = '';
@@ -266,16 +294,54 @@ const CampManager = {
         countText.textContent = `${count} ${count === 1 ? 'image' : 'images'} selected`;
         if (btnTrigger) btnTrigger.disabled = false;
 
-        Array.from(files).forEach(file => {
+        Array.from(files).forEach((file, index) => {
             const item = document.createElement('div');
             item.className = 'selected-thumb-item';
+            item.style.position = 'relative';
 
             const img = document.createElement('img');
             img.src = URL.createObjectURL(file);
             img.alt = file.name;
             img.title = file.name;
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.className = 'btn-remove-thumb';
+            removeBtn.style.position = 'absolute';
+            removeBtn.style.top = '-8px';
+            removeBtn.style.right = '-8px';
+            removeBtn.style.background = '#e74c3c';
+            removeBtn.style.color = '#fff';
+            removeBtn.style.border = 'none';
+            removeBtn.style.borderRadius = '50%';
+            removeBtn.style.width = '24px';
+            removeBtn.style.height = '24px';
+            removeBtn.style.cursor = 'pointer';
+            removeBtn.style.display = 'flex';
+            removeBtn.style.alignItems = 'center';
+            removeBtn.style.justifyContent = 'center';
+            removeBtn.style.fontSize = '18px';
+            removeBtn.style.lineHeight = '1';
+            removeBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+            removeBtn.style.zIndex = '10';
+
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (fileInput) {
+                    const dt = new DataTransfer();
+                    const newFiles = Array.from(fileInput.files);
+                    newFiles.splice(index, 1);
+                    newFiles.forEach(f => dt.items.add(f));
+                    fileInput.files = dt.files;
+                    
+                    // Trigger re-render directly to maintain state
+                    this.renderSelectedFiles(fileInput.files, container, countText, grid, btnTrigger, fileInput);
+                }
+            });
 
             item.appendChild(img);
+            item.appendChild(removeBtn);
             grid.appendChild(item);
         });
     },

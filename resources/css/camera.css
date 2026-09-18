@@ -880,3 +880,216 @@ body {
         font-size: 12.5px;
     }
 }
+/* ==========================================================================
+   SESSION 7: VIDEO STATE INDICATOR & PAUSE ACTION OVERLAY
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   7S. VIDEO STATE PILL (Overlaid on viewfinder)
+   -------------------------------------------------------------------------- */
+.video-state-pill {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(5, 7, 14, 0.88);
+    border: 1px solid var(--border-color);
+    color: var(--text-white);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 12;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.video-state-pill.running {
+    border-color: rgba(0, 255, 102, 0.45);
+    color: var(--success-green);
+    box-shadow: 0 0 12px rgba(0, 255, 102, 0.15);
+}
+
+.video-state-pill.paused {
+    border-color: rgba(255, 125, 0, 0.5);
+    color: var(--warning-orange);
+    box-shadow: 0 0 14px rgba(255, 125, 0, 0.2);
+}
+
+.video-state-icon {
+    font-size: 11px;
+    line-height: 1;
+}
+
+/* --------------------------------------------------------------------------
+   7S. PAUSE ACTION OVERLAY (DOM overlay for Open Actor Detail)
+   -------------------------------------------------------------------------- */
+.pause-action-overlay {
+    position: absolute;
+    bottom: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    animation: pauseOverlayIn 0.3s ease-out;
+    pointer-events: auto;
+    width: calc(100% - 32px);
+    max-width: 380px;
+}
+
+@keyframes pauseOverlayIn {
+    from {
+        transform: translateX(-50%) translateY(12px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+.pause-action-card {
+    background: rgba(11, 15, 25, 0.94);
+    border: 1px solid rgba(0, 255, 102, 0.35);
+    border-radius: 14px;
+    padding: 14px 18px;
+    width: 100%;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 255, 102, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pause-action-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pause-action-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--success-green);
+    box-shadow: 0 0 8px rgba(0, 255, 102, 0.6);
+    flex-shrink: 0;
+}
+
+.pause-action-actor-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pause-action-status {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--success-green);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.pause-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, rgba(0, 255, 102, 0.18), rgba(0, 255, 102, 0.08));
+    border: 1px solid rgba(0, 255, 102, 0.45);
+    border-radius: 10px;
+    color: var(--success-green);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pause-action-btn:hover {
+    background: linear-gradient(135deg, rgba(0, 255, 102, 0.28), rgba(0, 255, 102, 0.14));
+    border-color: var(--success-green);
+    color: #FFFFFF;
+    box-shadow: 0 4px 18px rgba(0, 255, 102, 0.3);
+    transform: translateY(-1px);
+}
+
+.pause-action-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 255, 102, 0.2);
+}
+
+.pause-action-btn svg {
+    flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   7S. VIDEO STATE TELEMETRY HIGHLIGHT
+   -------------------------------------------------------------------------- */
+.telemetry-value.highlight-video-state {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.telemetry-value.highlight-video-state.state-running {
+    color: var(--success-green);
+    text-shadow: 0 0 8px rgba(0, 255, 102, 0.35);
+}
+
+.telemetry-value.highlight-video-state.state-paused {
+    color: var(--warning-orange);
+    text-shadow: 0 0 8px rgba(255, 125, 0, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   7S. MOBILE RESPONSIVE FOR SESSION 7 ELEMENTS
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+    .video-state-pill {
+        top: 10px;
+        right: 10px;
+        font-size: 11px;
+        padding: 4px 10px;
+        gap: 6px;
+    }
+
+    .pause-action-overlay {
+        bottom: 36px;
+        width: calc(100% - 24px);
+        max-width: 320px;
+    }
+
+    .pause-action-card {
+        padding: 12px 14px;
+        gap: 10px;
+    }
+
+    .pause-action-actor-name {
+        font-size: 14px;
+    }
+
+    .pause-action-btn {
+        min-height: 44px;
+        font-size: 13px;
+        padding: 9px 14px;
+    }
+}

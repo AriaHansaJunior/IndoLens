@@ -133,14 +133,16 @@ async def detect_faces_endpoint(request: Request):
 
     # Run existing YOLO prediction pipeline (Ultralytics natively expects BGR)
     # predict_frame returns: [{"bbox": bbox, "confidence": conf, "crop": cropped_array}]
+    t_yolo_start = time.perf_counter()
     detections = predict_frame(img_bgr)
+    yolo_ms = round((time.perf_counter() - t_yolo_start) * 1000, 2)
 
     # FaceNet Embedding & Recognition Phase: process each face crop
     serializable_faces = []
     t_facenet_start = time.perf_counter()
     t_recognition_total = 0.0
 
-    for det in detections:
+    for idx, det in enumerate(detections):
         bbox = det["bbox"]  # [x1, y1, x2, y2]
         confidence = float(det["confidence"])
         crop = det.get("crop")
@@ -172,6 +174,8 @@ async def detect_faces_endpoint(request: Request):
                     face_data["actor"] = rec_res["actor"]
                     face_data["distance"] = rec_res["distance"]
                     face_data["status"] = rec_res["status"]  # "known" | "unknown"
+
+                    print(f"[Recognition Diagnostic] Face #{idx+1} -> Match: {face_data['actor']} | Dist: {face_data['distance']} | Threshold: {FACE_DISTANCE_THRESHOLD} | Status: {face_data['status']}")
                 else:
                     face_data["facenet_status"] = "invalid_dimension"
             except Exception as e:
@@ -195,6 +199,7 @@ async def detect_faces_endpoint(request: Request):
         "faces": serializable_faces,
         "frame_dimensions": [img_width, img_height],
         "inference_time_ms": elapsed_ms,
+        "yolo_time_ms": yolo_ms,
         "facenet_time_ms": facenet_ms,
         "recognition_time_ms": rec_ms
     }

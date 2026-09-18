@@ -56,7 +56,7 @@
     <!-- Multiple Face Image Upload Card -->
     <section class="camp-form-card upload-section">
         <h2 class="card-section-title">Upload Face Images</h2>
-        <p class="section-desc">Select one or more face reference images for <strong>{{ $actor->full_name }}</strong>. Supported formats: <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>. No arbitrary quantity limit.</p>
+        <p class="section-desc">Select one or more face reference images for <strong>{{ $actor->full_name }}</strong>. Supported formats: <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.webp</code>, <code>.avif</code>. No arbitrary quantity limit.</p>
 
         <form id="uploadFacesForm" method="POST" action="{{ route('camp.faces.store', $actor->id) }}" enctype="multipart/form-data">
             @csrf
@@ -68,13 +68,13 @@
                     <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
                 <p class="dropzone-text">Click to choose image files, or drag & drop here</p>
-                <span class="dropzone-hint">Multiple selection enabled • JPG, JPEG, PNG</span>
+                <span class="dropzone-hint">Multiple selection enabled • JPG, JPEG, PNG, WEBP, AVIF</span>
                 <input 
                     type="file" 
                     id="faceImagesInput" 
                     name="images[]" 
                     multiple 
-                    accept=".jpg,.jpeg,.png"
+                    accept=".jpg,.jpeg,.png,.webp,.avif"
                     class="dropzone-file-input"
                 >
             </div>
@@ -113,7 +113,7 @@
                 @foreach($actor->images as $img)
                     <div class="face-gallery-item" id="face-card-{{ $img->id }}">
                         <div class="face-img-wrapper">
-                            <img src="{{ asset('storage/actors/faces/' . $img->image) }}" alt="{{ $actor->full_name }} Face Image" class="face-thumb" loading="lazy">
+                            <img src="{{ asset('storage/' . $img->image) }}" alt="{{ $actor->full_name }} Face Image" class="face-thumb" loading="lazy">
                         </div>
                         <div class="face-meta">
                             <span class="face-filename" title="{{ $img->image }}">{{ $img->image }}</span>
@@ -174,6 +174,32 @@
         <div class="modal-actions">
             <button type="button" class="btn-modal btn-cancel" id="btnCancelUpload">Cancel</button>
             <button type="button" class="btn-modal btn-primary" id="btnProceedUpload">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Clear Selection Confirmation Modal -->
+<div class="camp-modal-backdrop" id="clearSelectionModal" style="display: none;">
+    <div class="camp-modal-dialog" role="dialog" aria-modal="true">
+        <div class="modal-header">
+            <div class="modal-icon warning-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <h3 class="modal-title">Clear Selection</h3>
+        </div>
+
+        <div class="modal-body">
+            <p class="modal-prompt">Are you sure you want to delete this selection?</p>
+            <p class="modal-warning">All currently selected images will be removed.</p>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" class="btn-modal btn-cancel" id="btnCancelClearSelection">Cancel</button>
+            <button type="button" class="btn-modal btn-danger" id="btnProceedClearSelection">Clear</button>
         </div>
     </div>
 </div>

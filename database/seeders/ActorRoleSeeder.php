@@ -15,9 +15,9 @@ class ActorRoleSeeder extends Seeder
      */
     public function run(): void
     {
-        $bayuSkak = Actor::where('full_name', 'Bayu Skak')->first();
+        $bayuActor = Actor::where('full_name', 'Bayu Eko Moektito')->orWhere('id', 1)->first();
 
-        if ($bayuSkak) {
+        if ($bayuActor) {
             $roles = [
                 ['movie_keywords' => 'yowis ben',        'character_name' => 'Bayu'],
                 ['movie_keywords' => 'sekawan limo',     'character_name' => 'Bagas'],
@@ -25,7 +25,7 @@ class ActorRoleSeeder extends Seeder
 
             foreach ($roles as $role) {
                 ActorRole::firstOrCreate(
-                    ['actor_id' => $bayuSkak->id, 'movie_keywords' => $role['movie_keywords']],
+                    ['actor_id' => $bayuActor->id, 'movie_keywords' => $role['movie_keywords']],
                     ['character_name' => $role['character_name']]
                 );
             }

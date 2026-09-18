@@ -26,7 +26,7 @@ class CampTest extends TestCase
     public function test_camp_index_page_loads_successfully(): void
     {
         $actor = Actor::create([
-            'full_name' => 'Bayu Skak',
+            'full_name' => 'Bayu Eko Moektito',
             'gender' => 'Laki-laki',
             'birth_date' => '1993-11-13',
             'age' => 31,
@@ -36,7 +36,7 @@ class CampTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('CAMP');
-        $response->assertSee('Bayu Skak');
+        $response->assertSee('Bayu Eko Moektito');
         $response->assertSee('Add New Actor');
         $response->assertSee('Edit');
         $response->assertSee('Add Face');
@@ -157,7 +157,7 @@ class CampTest extends TestCase
     public function test_multiple_face_images_upload_and_individual_delete(): void
     {
         $actor = Actor::create([
-            'full_name' => 'Bayu Skak',
+            'full_name' => 'Bayu Eko Moektito',
             'gender' => 'Laki-laki',
         ]);
 
@@ -165,10 +165,10 @@ class CampTest extends TestCase
         $facesPage->assertStatus(200);
         $facesPage->assertSee('Manage Face Images');
 
-        // Create 3 fake valid images (.jpg, .jpeg, .png)
-        $file1 = UploadedFile::fake()->image('bayu_01.jpg');
-        $file2 = UploadedFile::fake()->image('bayu_02.jpeg');
-        $file3 = UploadedFile::fake()->image('bayu_03.png');
+        // Create 3 fake valid images (.jpg, .jpeg, .png) with distinct dimensions to ensure distinct content
+        $file1 = UploadedFile::fake()->image('bayu_01.jpg', 100, 100);
+        $file2 = UploadedFile::fake()->image('bayu_02.jpeg', 120, 120);
+        $file3 = UploadedFile::fake()->image('bayu_03.png', 140, 140);
 
         $uploadResponse = $this->post("/camp/{$actor->id}/faces", [
             'images' => [$file1, $file2, $file3],
@@ -180,7 +180,7 @@ class CampTest extends TestCase
         $this->assertEquals(3, ActorImage::where('actor_id', $actor->id)->count());
 
         $firstImage = ActorImage::where('actor_id', $actor->id)->first();
-        Storage::disk('public')->assertExists('actors/faces/' . $firstImage->image);
+        Storage::disk('public')->assertExists($firstImage->image);
 
         // Individual face image delete
         $deleteResponse = $this->delete("/camp/{$actor->id}/faces/{$firstImage->id}");
@@ -188,7 +188,7 @@ class CampTest extends TestCase
         $deleteResponse->assertSessionHas('success', 'Face image deleted successfully.');
 
         $this->assertEquals(2, ActorImage::where('actor_id', $actor->id)->count());
-        Storage::disk('public')->assertMissing('actors/faces/' . $firstImage->image);
+        Storage::disk('public')->assertMissing($firstImage->image);
     }
 
     public function test_delete_actor_cascades_and_removes_physical_files(): void
@@ -208,7 +208,7 @@ class CampTest extends TestCase
 
         $this->assertEquals(2, ActorImage::where('actor_id', $actor->id)->count());
         $faceRecord = ActorImage::where('actor_id', $actor->id)->first();
-        Storage::disk('public')->assertExists('actors/faces/' . $faceRecord->image);
+        Storage::disk('public')->assertExists($faceRecord->image);
 
         // Delete actor
         $deleteResponse = $this->delete("/camp/{$actor->id}");
@@ -219,21 +219,21 @@ class CampTest extends TestCase
         $this->assertEquals(0, ActorImage::where('actor_id', $actor->id)->count());
 
         // Assert physical files deleted from storage
-        Storage::disk('public')->assertMissing('actors/sample_photo.jpg');
-        Storage::disk('public')->assertMissing('actors/faces/' . $faceRecord->image);
+        Storage::disk('public')->assertMissing('sample_photo.jpg');
+        Storage::disk('public')->assertMissing($faceRecord->image);
     }
 
     public function test_camp_search_and_pagination(): void
     {
-        Actor::create(['full_name' => 'Bayu Skak']);
         Actor::create(['full_name' => 'Bayu Eko Moektito']);
+        Actor::create(['full_name' => 'Bayu Airlangga']);
         Actor::create(['full_name' => 'Iqbaal Ramadhan']);
 
         // Search Bayu
         $searchRes = $this->get('/camp?search=Bayu');
         $searchRes->assertStatus(200);
-        $searchRes->assertSee('Bayu Skak');
         $searchRes->assertSee('Bayu Eko Moektito');
+        $searchRes->assertSee('Bayu Airlangga');
         $searchRes->assertDontSee('Iqbaal Ramadhan');
 
         // Pagination rows per page
@@ -244,7 +244,7 @@ class CampTest extends TestCase
     public function test_actor_detail_renders_filmography_from_database(): void
     {
         $actor = Actor::create([
-            'full_name' => 'Bayu Skak',
+            'full_name' => 'Bayu Eko Moektito',
             'gender' => 'Laki-laki',
             'birth_date' => '1993-11-13',
             'age' => 31,
@@ -266,7 +266,7 @@ class CampTest extends TestCase
 
         $detailRes = $this->get("/actors/{$actor->id}");
         $detailRes->assertStatus(200);
-        $detailRes->assertSee('Bayu Skak');
+        $detailRes->assertSee('Bayu Eko Moektito');
         $detailRes->assertSee('Male'); // English gender
         $detailRes->assertSee('31 Years Old'); // English age
         $detailRes->assertSee('Filmography & Roles');
@@ -278,32 +278,41 @@ class CampTest extends TestCase
     public function test_recognition_actor_lookup_api(): void
     {
         $actor = Actor::create([
-            'full_name' => 'Bayu Skak',
+            'full_name' => 'Bayu Eko Moektito',
             'gender' => 'Laki-laki',
             'age' => 31,
             'birth_date' => '1993-11-13',
             'birth_place' => 'Malang',
         ]);
 
-        // Known actor lookup
-        $knownRes = $this->get('/api/actors/lookup?name=Bayu%20Skak');
+        // Known actor lookup (Bayu -> Bayu Eko Moektito -> DB found -> correct Actor ID)
+        $knownRes = $this->get('/api/actors/lookup?name=Bayu%20Eko%20Moektito');
         $knownRes->assertStatus(200);
         $knownRes->assertJson([
             'found' => true,
             'actor' => [
                 'id' => $actor->id,
-                'full_name' => 'Bayu Skak',
+                'full_name' => 'Bayu Eko Moektito',
                 'gender' => 'Male',
                 'age' => 31,
             ],
         ]);
 
         // Case-insensitive lookup
-        $caseRes = $this->get('/api/actors/lookup?name=bayu%20skak');
+        $caseRes = $this->get('/api/actors/lookup?name=bayu%20eko%20moektito');
         $caseRes->assertStatus(200);
         $caseRes->assertJson(['found' => true]);
 
-        // Unknown actor
+        // Alias 'Bayu Skak' is NOT matched as full_name (no alias mechanism)
+        $aliasRes = $this->get('/api/actors/lookup?name=Bayu%20Skak');
+        $aliasRes->assertStatus(200);
+        $aliasRes->assertJson(['found' => false, 'actor' => null]);
+
+        // Other person / Unknown actor -> Unknown
+        $otherRes = $this->get('/api/actors/lookup?name=Unknown%20Person');
+        $otherRes->assertStatus(200);
+        $otherRes->assertJson(['found' => false, 'actor' => null]);
+
         $unknownRes = $this->get('/api/actors/lookup?name=Tidak%20Dikenali');
         $unknownRes->assertStatus(200);
         $unknownRes->assertJson(['found' => false, 'actor' => null]);
@@ -312,5 +321,42 @@ class CampTest extends TestCase
         $emptyRes = $this->get('/api/actors/lookup?name=');
         $emptyRes->assertStatus(200);
         $emptyRes->assertJson(['found' => false, 'actor' => null]);
+    }
+
+    public function test_active_actor_detection_with_official_identity(): void
+    {
+        $actor = Actor::create([
+            'full_name' => 'Bayu Eko Moektito',
+            'gender' => 'Laki-laki',
+        ]);
+
+        // When Python sends recognized identity 'Bayu Eko Moektito'
+        $response = $this->postJson('/api/actors/active', [
+            'actors' => ['Bayu Eko Moektito'],
+            'window_title' => 'Sekawan Limo',
+        ]);
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('actors', [
+            'id' => $actor->id,
+            'is_detected' => true,
+        ]);
+
+        // Polling returns official identity
+        $getActiveRes = $this->get('/api/actors/active');
+        $getActiveRes->assertStatus(200);
+        $getActiveRes->assertJsonFragment(['Bayu Eko Moektito']);
+
+        // When unrecognized person is sent
+        $responseUnknown = $this->postJson('/api/actors/active', [
+            'actors' => ['Tidak Dikenali'],
+            'window_title' => 'Sekawan Limo',
+        ]);
+        $responseUnknown->assertStatus(200);
+
+        $this->assertDatabaseHas('actors', [
+            'id' => $actor->id,
+            'is_detected' => false,
+        ]);
     }
 }
