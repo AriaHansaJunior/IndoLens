@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 import numpy as np
 
@@ -12,13 +13,15 @@ from recognition.euclidean_distance import calculate_distance, calculate_all_dis
 from recognition.threshold import verify_threshold, classify_result
 
 
-def load_actor_embeddings(actor_name, base_path=EMBEDDING_PATH):
+def load_actor_embeddings(actor_name, base_path=EMBEDDING_PATH, allowed_files=None, full_name=None):
     """
     Load all .npy 128-D embedding files for a specific actor.
     
-    :param actor_name: str name of actor folder (e.g. 'iqbaal_ramadhan')
+    :param actor_name: str name of actor folder (e.g. 'bayu_eko_moektito')
     :param base_path: Path or str base directory containing actor embeddings
-    :return: list of dicts [{"file": str, "path": str, "embedding": np.ndarray}]
+    :param allowed_files: optional collection of allowed file names (e.g. ['1.npy', ...])
+    :param full_name: optional real MySQL full_name from database
+    :return: list of dicts [{"file": str, "path": str, "embedding": np.ndarray, "full_name": str}]
     """
     actor_dir = Path(base_path) / actor_name
     embeddings = []
@@ -26,14 +29,18 @@ def load_actor_embeddings(actor_name, base_path=EMBEDDING_PATH):
         return embeddings
 
     for npy_file in sorted(actor_dir.glob("*.npy")):
+        if allowed_files is not None and npy_file.name not in allowed_files:
+            continue
         try:
             emb = np.load(str(npy_file))
-            embeddings.append({
-                "file": npy_file.name,
-                "path": str(npy_file),
-                "embedding": emb
-            })
-        except Exception as e:
+            if len(emb) == 128:
+                embeddings.append({
+                    "file": npy_file.name,
+                    "path": str(npy_file),
+                    "embedding": emb,
+                    "full_name": full_name or actor_name.replace("_", " ").title()
+                })
+        except Exception:
             continue
 
     return embeddings
@@ -42,6 +49,7 @@ def load_actor_embeddings(actor_name, base_path=EMBEDDING_PATH):
 def load_all_embeddings(base_path=EMBEDDING_PATH):
     """
     Load all reference actor embeddings from base embedding path.
+    If manifest.json exists, enriches actor records with real MySQL full_name.
     
     :param base_path: Path or str base directory of embeddings
     :return: dict mapping actor_name -> list of embedding dicts
@@ -51,12 +59,28 @@ def load_all_embeddings(base_path=EMBEDDING_PATH):
     if not path.exists() or not path.is_dir():
         return all_embeddings
 
+    manifest_file = path / "manifest.json"
+    manifest_actors = {}
+    if manifest_file.exists():
+        try:
+            with open(manifest_file, "r", encoding="utf-8") as f:
+                manifest_data = json.load(f)
+                manifest_actors = manifest_data.get("actors", {})
+        except Exception:
+            manifest_actors = {}
+
     for item in sorted(path.iterdir()):
         if item.is_dir() and not item.name.startswith("."):
-            actor_name = item.name
-            actor_embs = load_actor_embeddings(actor_name, base_path=path)
+            actor_slug = item.name
+            meta = manifest_actors.get(actor_slug, {}) if isinstance(manifest_actors, dict) else {}
+            full_name = meta.get("full_name")
+            actor_embs = load_actor_embeddings(
+                actor_slug,
+                base_path=path,
+                full_name=full_name
+            )
             if actor_embs:
-                all_embeddings[actor_name] = actor_embs
+                all_embeddings[actor_slug] = actor_embs
 
     return all_embeddings
 
@@ -96,8 +120,16 @@ def find_best_match(query_embedding, all_actor_embeddings, threshold=FACE_DISTAN
 
     # Find global minimum distance item
     best_item = min(all_distances, key=lambda x: x["distance"])
-    best_actor = best_item["actor"]
+    best_actor_key = best_item["actor"]
     min_distance = best_item["distance"]
 
+    # Use the real MySQL full_name if recorded on the embedding item
+    actor_display_name = best_actor_key
+    actor_list = all_actor_embeddings.get(best_actor_key, [])
+    if actor_list and isinstance(actor_list, list) and len(actor_list) > 0:
+        first_item = actor_list[0]
+        if isinstance(first_item, dict) and "full_name" in first_item and first_item["full_name"]:
+            actor_display_name = first_item["full_name"]
+
     is_below = verify_threshold(min_distance, threshold=threshold)
-    return classify_result(best_actor, min_distance, is_below)
+    return classify_result(actor_display_name, min_distance, is_below)

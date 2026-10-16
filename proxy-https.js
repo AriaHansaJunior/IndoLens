@@ -4,6 +4,7 @@ import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,20 +113,160 @@ function proxyToVite(req, res) {
 }
 
 const YOLO_PORT = 8002;
+let yoloProcess = null;
+let yoloStarting = false;
+let yoloReady = false;
 
 /**
- * Proxy request to internal Python YOLO Face Detection micro-service (Session 3)
+ * Clean up spawned YOLO microservice process
+ */
+function cleanupYoloProcess() {
+    if (yoloProcess && !yoloProcess.killed) {
+        console.log(`[Gateway] Terminating spawned YOLO microservice (PID ${yoloProcess.pid})...`);
+        try {
+            if (process.platform === 'win32') {
+                spawn('taskkill', ['/pid', String(yoloProcess.pid), '/f', '/t']);
+            } else {
+                yoloProcess.kill('SIGTERM');
+            }
+        } catch (e) {
+            console.warn('[Gateway] Error terminating YOLO process:', e.message);
+        }
+        yoloProcess = null;
+        yoloReady = false;
+        yoloStarting = false;
+    }
+}
+
+/**
+ * Ensure Python YOLO + FaceNet microservice is running on port 8002.
+ * If already active, acknowledges healthy status.
+ * If offline, automatically spawns python python/yolo_service.py and supervises it.
+ */
+function ensureYoloService() {
+    const checkReq = http.get(`http://127.0.0.1:${YOLO_PORT}/health`, (res) => {
+        if (res.statusCode === 200) {
+            yoloReady = true;
+            yoloStarting = false;
+            console.log(`[Gateway] YOLO Face Detection service is READY on port ${YOLO_PORT}`);
+        }
+    });
+
+    checkReq.on('error', () => {
+        if (yoloProcess || yoloStarting) return;
+
+        yoloStarting = true;
+        console.log(`[Gateway] Port ${YOLO_PORT} is offline. Auto-starting Python YOLO service...`);
+
+        const pythonScript = path.join(__dirname, 'python', 'yolo_service.py');
+        const pythonCmd = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : 'python3');
+
+        try {
+            yoloProcess = spawn(pythonCmd, [pythonScript], {
+                cwd: __dirname,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                shell: false,
+            });
+
+            console.log(`[Gateway] Spawned YOLO service process with PID: ${yoloProcess.pid}`);
+
+            yoloProcess.stdout.on('data', (data) => {
+                const lines = data.toString().trim().split('\n');
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed) {
+                        console.log(`[YOLO] ${trimmed}`);
+                        if (trimmed.includes('Uvicorn running') || trimmed.includes('Application startup complete')) {
+                            yoloReady = true;
+                            yoloStarting = false;
+                        }
+                    }
+                }
+            });
+
+            yoloProcess.stderr.on('data', (data) => {
+                const lines = data.toString().trim().split('\n');
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed) {
+                        console.warn(`[YOLO] ${trimmed}`);
+                        if (trimmed.includes('Uvicorn running') || trimmed.includes('Application startup complete')) {
+                            yoloReady = true;
+                            yoloStarting = false;
+                        }
+                    }
+                }
+            });
+
+            yoloProcess.on('exit', (code, signal) => {
+                console.log(`[Gateway] YOLO service process exited (code: ${code}, signal: ${signal})`);
+                yoloProcess = null;
+                yoloReady = false;
+                yoloStarting = false;
+            });
+
+            yoloProcess.on('error', (err) => {
+                console.error(`[Gateway] Failed to start YOLO service: ${err.message}`);
+                yoloProcess = null;
+                yoloReady = false;
+                yoloStarting = false;
+            });
+
+            // Poll /health periodically until ready (up to 15s)
+            let retries = 0;
+            const pollTimer = setInterval(() => {
+                retries++;
+                const pollReq = http.get(`http://127.0.0.1:${YOLO_PORT}/health`, (res) => {
+                    if (res.statusCode === 200) {
+                        yoloReady = true;
+                        yoloStarting = false;
+                        clearInterval(pollTimer);
+                        console.log(`[Gateway] YOLO Face Detection service is confirmed READY on port ${YOLO_PORT}`);
+                    }
+                });
+                pollReq.on('error', () => {
+                    if (retries >= 30) {
+                        clearInterval(pollTimer);
+                        yoloStarting = false;
+                        console.warn(`[Gateway] WARNING: YOLO service did not become ready within 15s.`);
+                    }
+                });
+            }, 500);
+
+        } catch (err) {
+            console.error(`[Gateway] Error spawning YOLO service: ${err.message}`);
+            yoloStarting = false;
+        }
+    });
+}
+
+const yoloHttpAgent = new http.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 10000,
+    maxSockets: 30,
+    maxFreeSockets: 10,
+    timeout: 30000,
+});
+
+/**
+ * Proxy request to internal Python YOLO Face Detection micro-service (Session 3 & 7)
  */
 function proxyToYolo(req, res) {
     const targetPath = req.url.replace(/^\/api\/yolo/, '') || '/';
+    const forwardHeaders = { ...req.headers };
+    delete forwardHeaders.connection;
+    delete forwardHeaders.host;
+
     const options = {
         hostname: '127.0.0.1',
         port: YOLO_PORT,
         path: targetPath,
         method: req.method,
+        agent: yoloHttpAgent,
         headers: {
-            ...req.headers,
+            ...forwardHeaders,
             host: `127.0.0.1:${YOLO_PORT}`,
+            connection: 'keep-alive',
         }
     };
 
@@ -137,8 +278,15 @@ function proxyToYolo(req, res) {
     proxyReq.on('error', (err) => {
         console.error('[YOLO Proxy Error]', err.message);
         if (!res.headersSent) {
-            res.writeHead(502, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'error', message: 'YOLO service is not reachable on port ' + YOLO_PORT }));
+            if (yoloStarting) {
+                res.writeHead(503, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'error', message: 'YOLO service is initializing models, please retry in a moment' }));
+            } else {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'error', message: 'YOLO service is not reachable on port ' + YOLO_PORT }));
+                // Attempt to revive if offline
+                ensureYoloService();
+            }
         }
     });
 
@@ -246,13 +394,22 @@ mainServer.listen(PORT, '0.0.0.0', () => {
     console.log(`[Gateway] Laptop HTTPS    : https://localhost:${PORT}/camera`);
     console.log(`[Gateway] Laptop 127.0.0.1: https://127.0.0.1:${PORT}/camera`);
 
-    // Verify YOLO micro-service status on startup
-    const checkReq = http.get(`http://127.0.0.1:${YOLO_PORT}/health`, (res) => {
-        if (res.statusCode === 200) {
-            console.log(`[Gateway] YOLO Face Detection service is READY on port ${YOLO_PORT}`);
-        }
-    });
-    checkReq.on('error', () => {
-        console.warn(`[Gateway] WARNING: YOLO service is not running on port ${YOLO_PORT}. Run 'npm run dev:all' to start all services.`);
-    });
+    // Ensure YOLO micro-service is active on port 8002
+    ensureYoloService();
 });
+
+// Process termination cleanup handlers
+process.on('SIGINT', () => {
+    cleanupYoloProcess();
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    cleanupYoloProcess();
+    process.exit(0);
+});
+
+process.on('exit', () => {
+    cleanupYoloProcess();
+});
+

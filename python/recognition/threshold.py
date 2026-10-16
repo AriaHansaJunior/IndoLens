@@ -22,9 +22,11 @@ def verify_threshold(distance, threshold=FACE_DISTANCE_THRESHOLD):
 
 
 def format_actor_name(actor_name):
-    """Format folder actor name to title case (e.g. 'iqbaal_ramadhan' -> 'Iqbaal Ramadhan')."""
+    """Format folder actor name to title case (e.g. 'iqbaal_ramadhan' -> 'Iqbaal Ramadhan'). Preserves exact MySQL full_name if already formatted."""
     if not actor_name or actor_name == "Tidak Dikenali":
         return "Tidak Dikenali"
+    if "_" not in actor_name and any(c.isupper() for c in actor_name):
+        return actor_name
     return actor_name.replace("_", " ").title()
 
 

@@ -9,10 +9,6 @@
  * using lightweight pixel-level frame differencing on the existing yoloCanvas.
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-    CameraCapture.init();
-});
-
 const CameraCapture = {
     // Media Stream State
     mediaStream: null,
@@ -48,13 +44,14 @@ const CameraCapture = {
     lastFaceNetLatencyMs: 0,
     facenetProcessedCount: 0,
     actorDbCache: {}, // Session 6: Cache for resolved MySQL actor records
+    lastActiveSyncTime: 0, // Session 9: Throttling for /api/actors/active sync
 
     // Session 7: Video State Detection (Frame Difference)
     videoState: 'idle',                    // 'idle' | 'running' | 'paused'
-    prevFrameData: null,                   // Previous frame's pixel data (Uint8ClampedArray)
+    prevFrameData: null,                   // Previous frame's pixel data (reusable buffer)
     consecutiveStableFrames: 0,            // Counter for consecutive stable frames
-    PAUSE_DIFF_THRESHOLD: 2.5,             // Mean pixel difference threshold for pause detection
-    PAUSE_CONSECUTIVE_REQUIRED: 8,         // Number of consecutive stable frames required (~0.8s at 10 FPS)
+    PAUSE_DIFF_THRESHOLD: 3.2,             // Mean pixel difference threshold for pause detection (tuned for handheld stability)
+    PAUSE_CONSECUTIVE_REQUIRED: 4,         // Consecutive stable frames required (~1.2s at 3 FPS)
 
     // Dedicated Latest Frame Buffer (Ready for future AI processing)
     latestFrame: {
@@ -295,13 +292,37 @@ const CameraCapture = {
             }
 
             const video = this.elements.video;
+            video.muted = true;
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
             video.srcObject = this.mediaStream;
 
-            // Wait for video metadata to establish dimensions
+            // Make video visible so mobile Chrome compositor decodes video frames
+            video.style.display = 'block';
+
+            // Wait for video metadata/play with multi-event and safety timeout fallback
             await new Promise((resolve) => {
-                video.onloadedmetadata = () => {
-                    video.play().then(resolve).catch(resolve);
+                let resolved = false;
+                const onReady = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        video.play().catch(e => console.warn('video.play notice:', e)).finally(resolve);
+                    }
                 };
+
+                // If already ready
+                if (video.readyState >= 1 && video.videoWidth > 0) {
+                    onReady();
+                    return;
+                }
+
+                video.addEventListener('loadedmetadata', onReady, { once: true });
+                video.addEventListener('loadeddata', onReady, { once: true });
+                video.addEventListener('canplay', onReady, { once: true });
+
+                // Safety timeout fallback: never hang indefinitely on mobile
+                setTimeout(onReady, 600);
             });
 
             this.isStreaming = true;
@@ -490,8 +511,9 @@ const CameraCapture = {
         const currentData = currentImageData.data; // Uint8ClampedArray (RGBA)
 
         if (!this.prevFrameData || this.prevFrameData.length !== currentData.length) {
-            // First frame or resolution changed — store and mark as running
-            this.prevFrameData = new Uint8ClampedArray(currentData);
+            // First frame or resolution changed — allocate buffer once and mark as running
+            this.prevFrameData = new Uint8ClampedArray(currentData.length);
+            this.prevFrameData.set(currentData);
             this.consecutiveStableFrames = 0;
             if (this.videoState === 'idle') {
                 this.setVideoState('running');
@@ -514,13 +536,13 @@ const CameraCapture = {
 
         const meanDiff = sampleCount > 0 ? totalDiff / sampleCount : 0;
 
-        // Session 7: Temporary diagnostic logging for pause detection tuning
+        // Session 7: Diagnostic logging for pause detection tuning
         if (this.totalFramesIngested % 5 === 0) {
             console.log(`[Diagnostic] Video State: ${this.videoState} | Consecutive: ${this.consecutiveStableFrames} | Mean Diff: ${meanDiff.toFixed(3)}`);
         }
 
-        // Store current frame as previous for next comparison
-        this.prevFrameData = new Uint8ClampedArray(currentData);
+        // Store current frame as previous for next comparison (O(1) memory buffer reuse)
+        this.prevFrameData.set(currentData);
 
         // State determination
         if (meanDiff <= this.PAUSE_DIFF_THRESHOLD) {
@@ -589,49 +611,90 @@ const CameraCapture = {
     },
 
     /**
-     * Session 7: Show Pause Action Overlay for Recognized Known Actors
-     * Only displays for faces with status === 'known' AND db_record.id exists.
+     * Session 7 & 9: Show Pause Action Overlay for Recognized Known Actors
+     * Supports multiple detected faces independently. Only displays for faces with status === 'known' AND db_record.id exists.
+     * Records/synchronizes recognized identities with MySQL database via /api/actors/active.
      */
     showPauseActionOverlay() {
         const overlay = this.elements.pauseActionOverlay;
         if (!overlay) return;
 
-        // Find the first known actor with a database record
-        const knownWithRecord = (this.latestDetections || []).find(
+        // Find all known faces with database records
+        const knownWithRecords = (this.latestDetections || []).filter(
             f => f.status === 'known' && f.db_record && f.db_record.id
         );
 
-        if (!knownWithRecord) {
+        if (knownWithRecords.length === 0) {
             // No known actor with db record — hide overlay
             overlay.style.display = 'none';
             overlay.innerHTML = '';
             return;
         }
 
-        const actorName = knownWithRecord.actor || 'Unknown Actor';
-        const actorId = knownWithRecord.db_record.id;
-        const distStr = typeof knownWithRecord.distance === 'number' && knownWithRecord.distance < 900
-            ? knownWithRecord.distance.toFixed(3)
-            : '-';
+        // Deduplicate multiple bounding boxes of the same actor
+        const seenActorIds = new Set();
+        const uniqueKnownFaces = [];
+        for (const face of knownWithRecords) {
+            if (!seenActorIds.has(face.db_record.id)) {
+                seenActorIds.add(face.db_record.id);
+                uniqueKnownFaces.push(face);
+            }
+        }
 
-        overlay.innerHTML = `
-            <div class="pause-action-card">
-                <div class="pause-action-header">
-                    <span class="pause-action-dot"></span>
-                    <span class="pause-action-actor-name">${this.escapeHtml(actorName)}</span>
+        let html = '';
+        for (const known of uniqueKnownFaces) {
+            const actorName = known.actor || known.db_record.full_name || 'Unknown Actor';
+            const actorId = known.db_record.id;
+            const distStr = typeof known.distance === 'number' && known.distance < 900
+                ? known.distance.toFixed(3)
+                : '-';
+
+            html += `
+                <div class="pause-action-card">
+                    <div class="pause-action-header">
+                        <span class="pause-action-dot"></span>
+                        <span class="pause-action-actor-name">${this.escapeHtml(actorName)}</span>
+                    </div>
+                    <span class="pause-action-status">Recognized · Distance ${distStr}</span>
+                    <a href="/actors/${actorId}" class="pause-action-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        Open Actor Detail
+                    </a>
                 </div>
-                <span class="pause-action-status">Recognized · Distance ${distStr}</span>
-                <a href="/actors/${actorId}" class="pause-action-btn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                    Open Actor Detail
-                </a>
-            </div>
-        `;
+            `;
+        }
 
+        overlay.innerHTML = html;
         overlay.style.display = 'flex';
+
+        // Session 9: Synchronize paused recognized identities to MySQL database
+        const activeNames = uniqueKnownFaces.map(f => f.db_record.full_name || f.actor);
+        this.syncActiveActors(activeNames);
+    },
+
+    /**
+     * Session 9: Synchronize recognized active actor identities to Laravel MySQL backend.
+     * Updates actors.is_detected in database so Actor List and Actor Detail reflect detection state.
+     * Strict rule: Never sends unknown or fabricated identities.
+     */
+    async syncActiveActors(actorNames = []) {
+        try {
+            const cleanNames = [...new Set((actorNames || []).filter(n => n && n !== 'Unknown' && n !== 'Tidak Dikenali'))];
+            await fetch('/api/actors/active', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ actors: cleanNames })
+            });
+            this.lastActiveSyncTime = performance.now();
+        } catch (e) {
+            console.warn('[Active Actor Sync Notice]', e.message);
+        }
     },
 
     /**
@@ -744,6 +807,13 @@ const CameraCapture = {
                 // Session 7: If currently paused, refresh overlay with latest detections
                 if (this.videoState === 'paused') {
                     this.showPauseActionOverlay();
+                } else {
+                    // Session 9: Periodically sync recognized known actors during live streaming (throttled to ~1.5s)
+                    const liveKnown = (this.latestDetections || []).filter(f => f.status === 'known' && f.db_record && f.db_record.full_name);
+                    if (liveKnown.length > 0 && (performance.now() - this.lastActiveSyncTime > 1500)) {
+                        const names = [...new Set(liveKnown.map(f => f.db_record.full_name))];
+                        this.syncActiveActors(names);
+                    }
                 }
             }
         } catch (err) {
@@ -897,11 +967,12 @@ const CameraCapture = {
             ctx.lineTo(boxX + boxW, boxY + boxH - cornerLen);
             ctx.stroke();
 
-            // 4. Recognition Badge Pill above bounding box (Session 5: Actor Name & Euclidean Distance)
+            // 4. Recognition Badge Pill above bounding box (Session 5 & 7: Actor Name & Euclidean Distance in English)
             let labelText = '';
             if (face.actor && typeof face.distance === 'number') {
                 const distStr = face.distance < 900 ? face.distance.toFixed(2) : '-';
-                labelText = `${face.actor} · ${distStr}`;
+                const actorDisplay = (isUnknown || face.actor === 'Tidak Dikenali') ? 'Unknown' : face.actor;
+                labelText = `${actorDisplay} · ${distStr}`;
             } else {
                 const confPercent = Math.round(confidence * 100);
                 labelText = `Face ${confPercent}%`;
@@ -1134,6 +1205,9 @@ const CameraCapture = {
         // Session 7: Ensure video state pill and overlay are hidden
         if (this.elements.videoStatePill) this.elements.videoStatePill.style.display = 'none';
         this.hidePauseActionOverlay();
+
+        // Session 9: Reset active detection status in backend on camera stop
+        this.syncActiveActors([]);
     },
 
     /**
@@ -1341,3 +1415,13 @@ window.IndoLensPipeline = {
     start: () => CameraCapture.startPipeline(),
     stop: () => CameraCapture.stopPipeline(),
 };
+
+// Auto-initialize when DOM is ready or immediately if already loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        CameraCapture.init();
+    });
+} else {
+    CameraCapture.init();
+}
+

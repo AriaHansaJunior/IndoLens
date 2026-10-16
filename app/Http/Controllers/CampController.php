@@ -10,6 +10,8 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -100,6 +102,8 @@ class CampController extends Controller
     {
         $actor = Actor::findOrFail($id);
 
+        $oldFullName = $actor->full_name;
+
         DB::transaction(function () use ($request, $actor) {
             // Map UI gender to database representation
             $gender = match (strtolower(trim((string)$request->input('gender')))) {
@@ -166,6 +170,24 @@ class CampController extends Controller
             $actor->update($data);
         });
 
+        // If actor identity changed, remove stale reference embeddings and resync under new name
+        if ($oldFullName !== $actor->full_name) {
+            $this->deleteActorFromYoloService($actor->id, $oldFullName);
+            $imagePayload = [];
+            foreach ($actor->images()->get() as $img) {
+                $path = storage_path('app/public/' . $img->image);
+                if (file_exists($path)) {
+                    $imagePayload[] = [
+                        'image_id' => $img->id,
+                        'image_path' => $path,
+                    ];
+                }
+            }
+            if (!empty($imagePayload)) {
+                $this->syncActorEmbeddingsWithYoloService($actor, $imagePayload);
+            }
+        }
+
         return redirect()->route('camp.index')->with('success', 'Actor updated successfully.');
     }
 
@@ -175,6 +197,8 @@ class CampController extends Controller
     public function destroy(string $id)
     {
         $actor = Actor::with('images')->findOrFail($id);
+        $actorFullName = $actor->full_name;
+        $actorId = $actor->id;
 
         DB::transaction(function () use ($actor) {
             // Collect face images to delete from disk
@@ -202,6 +226,9 @@ class CampController extends Controller
                 }
             }
         });
+
+        // Clean up reference embeddings in Python YOLO microservice
+        $this->deleteActorFromYoloService($actorId, $actorFullName);
 
         return redirect()->route('camp.index')->with('success', 'Actor deleted successfully.');
     }
@@ -231,7 +258,8 @@ class CampController extends Controller
             'images.*.mimes' => 'Only .jpg, .jpeg, .png, .webp, and .avif images are allowed.',
         ]);
 
-        DB::transaction(function () use ($request, $actor) {
+        $newItems = [];
+        DB::transaction(function () use ($request, $actor, &$newItems) {
             $files = $request->file('images', []);
             $slug = Str::slug($actor->full_name);
             $dirName = "actor-images/{$actor->id}-{$slug}";
@@ -262,15 +290,23 @@ class CampController extends Controller
 
                 $file->storeAs($dirName, $filename, 'public');
 
-                ActorImage::create([
+                $record = ActorImage::create([
                     'actor_id' => $actor->id,
                     'image' => $dirName . '/' . $filename,
                 ]);
+
+                $newItems[] = [
+                    'image_id' => $record->id,
+                    'image_path' => storage_path('app/public/' . $dirName . '/' . $filename),
+                ];
 
                 // Track the newly added file's hash to prevent duplicates within the same batch
                 $existingHashes[$hash] = true;
             }
         });
+
+        // Session 7: Automatically extract FaceNet 128-D embeddings in YOLO microservice
+        $this->syncActorEmbeddingsWithYoloService($actor, $newItems);
 
         return redirect()->route('camp.faces', $actor->id)->with('success', 'Face images uploaded successfully.');
     }
@@ -282,6 +318,7 @@ class CampController extends Controller
     {
         $actor = Actor::findOrFail($actorId);
         $imageRecord = ActorImage::where('actor_id', $actor->id)->where('id', $imageId)->firstOrFail();
+        $targetImageId = (int) $imageId;
 
         DB::transaction(function () use ($actor, $imageRecord) {
             $filename = $imageRecord->image;
@@ -329,7 +366,61 @@ class CampController extends Controller
             }
         });
 
+        // Session 7: Delete reference embedding from YOLO microservice
+        $this->deleteActorEmbeddingFromYoloService($actor, $targetImageId);
+
         return redirect()->route('camp.faces', $actor->id)->with('success', 'Face image deleted successfully.');
+    }
+
+    /**
+     * Session 7: Synchronize uploaded face images with Python YOLO + FaceNet microservice.
+     */
+    protected function syncActorEmbeddingsWithYoloService(Actor $actor, array $imageItems): void
+    {
+        if (empty($imageItems)) {
+            return;
+        }
+
+        try {
+            Http::timeout(10)->post('http://127.0.0.1:8002/sync-actor-embedding', [
+                'actor_id' => $actor->id,
+                'full_name' => $actor->full_name,
+                'images' => $imageItems,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('[CAMP] Could not sync actor embeddings with YOLO service: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Session 7: Delete single image embedding from Python YOLO + FaceNet microservice.
+     */
+    protected function deleteActorEmbeddingFromYoloService(Actor $actor, int $imageId): void
+    {
+        try {
+            Http::timeout(5)->delete('http://127.0.0.1:8002/delete-actor-embedding', [
+                'actor_id' => $actor->id,
+                'full_name' => $actor->full_name,
+                'image_id' => $imageId,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('[CAMP] Could not delete actor embedding from YOLO service: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Session 7: Delete entire actor reference embeddings from Python YOLO microservice.
+     */
+    protected function deleteActorFromYoloService(int $actorId, string $fullName): void
+    {
+        try {
+            Http::timeout(5)->delete('http://127.0.0.1:8002/delete-actor', [
+                'actor_id' => $actorId,
+                'full_name' => $fullName,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('[CAMP] Could not delete actor from YOLO service: ' . $e->getMessage());
+        }
     }
 
     /**

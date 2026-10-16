@@ -9,6 +9,7 @@ use App\Models\Movie;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -21,6 +22,9 @@ class CampTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         Storage::fake('public');
+        Http::fake([
+            'http://127.0.0.1:8002/*' => Http::response(['status' => 'success', 'generated_count' => 1], 200),
+        ]);
     }
 
     public function test_camp_index_page_loads_successfully(): void
@@ -358,5 +362,118 @@ class CampTest extends TestCase
             'id' => $actor->id,
             'is_detected' => false,
         ]);
+    }
+
+    public function test_store_faces_triggers_yolo_embedding_sync(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:8002/sync-actor-embedding' => Http::response([
+                'status' => 'success',
+                'generated_count' => 1,
+            ], 200),
+        ]);
+
+        Storage::fake('public');
+
+        $actor = Actor::create([
+            'full_name' => 'Aktor Uji Coba',
+            'gender' => 'Laki-laki',
+        ]);
+
+        $file = \Illuminate\Http\UploadedFile::fake()->image('face1.jpg', 200, 200);
+
+        $response = $this->post(route('camp.faces.store', $actor->id), [
+            'images' => [$file],
+        ]);
+
+        $response->assertRedirect(route('camp.faces', $actor->id));
+        $this->assertDatabaseHas('actor_images', [
+            'actor_id' => $actor->id,
+        ]);
+
+        Http::assertSent(function ($request) use ($actor) {
+            return $request->url() === 'http://127.0.0.1:8002/sync-actor-embedding'
+                && $request['actor_id'] === $actor->id
+                && $request['full_name'] === 'Aktor Uji Coba'
+                && count($request['images']) === 1;
+        });
+    }
+
+    public function test_destroy_face_triggers_yolo_embedding_delete(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:8002/delete-actor-embedding' => Http::response(['status' => 'success'], 200),
+        ]);
+
+        Storage::fake('public');
+
+        $actor = Actor::create([
+            'full_name' => 'Aktor Hapus',
+            'gender' => 'Perempuan',
+        ]);
+
+        $image = ActorImage::create([
+            'actor_id' => $actor->id,
+            'image' => 'actor-images/test/face.jpg',
+        ]);
+
+        $response = $this->delete(route('camp.faces.destroy', [$actor->id, $image->id]));
+        $response->assertRedirect(route('camp.faces', $actor->id));
+
+        $this->assertDatabaseMissing('actor_images', ['id' => $image->id]);
+
+        Http::assertSent(function ($request) use ($actor, $image) {
+            return $request->url() === 'http://127.0.0.1:8002/delete-actor-embedding'
+                && $request['actor_id'] === $actor->id
+                && $request['image_id'] === $image->id;
+        });
+    }
+
+    public function test_destroy_actor_triggers_yolo_actor_delete(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:8002/delete-actor' => Http::response(['status' => 'success'], 200),
+        ]);
+
+        Storage::fake('public');
+
+        $actor = Actor::create([
+            'full_name' => 'Aktor Musnah',
+            'gender' => 'Laki-laki',
+        ]);
+
+        $response = $this->delete(route('camp.destroy', $actor->id));
+        $response->assertRedirect(route('camp.index'));
+
+        $this->assertDatabaseMissing('actors', ['id' => $actor->id]);
+
+        Http::assertSent(function ($request) use ($actor) {
+            return $request->url() === 'http://127.0.0.1:8002/delete-actor'
+                && $request['actor_id'] === $actor->id
+                && $request['full_name'] === 'Aktor Musnah';
+        });
+    }
+
+    public function test_sync_embeddings_artisan_command(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:8002/health' => Http::response(['status' => 'ready'], 200),
+            'http://127.0.0.1:8002/prune-orphaned-actors' => Http::response([
+                'status' => 'success',
+                'pruned_orphans' => [],
+            ], 200),
+            'http://127.0.0.1:8002/sync-actor-embedding' => Http::response([
+                'status' => 'success',
+                'generated_count' => 1,
+                'total_embeddings_for_actor' => 1,
+            ], 200),
+            'http://127.0.0.1:8002/reload-embeddings' => Http::response([
+                'status' => 'success',
+                'actors_loaded' => 1,
+            ], 200),
+        ]);
+
+        $this->artisan('indolens:sync-embeddings')
+            ->assertExitCode(0);
     }
 }

@@ -1,0 +1,12 @@
+{
+  "include": [
+    ".",
+    "scratch",
+    "training_python",
+    "python"
+  ],
+  "extraPaths": [
+    "training_python",
+    "python"
+  ]
+}
