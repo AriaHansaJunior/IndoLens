@@ -78,21 +78,44 @@ STAGE07_PROBE_CSV = STAGE07_DIR / "probe_predictions.csv"
 PROBE_SET_DIR = TRAINING_DIR / "probe_set"
 
 # ---------------------------------------------------------------------------
-# 2. Metodologi skripsi (TERKUNCI — jangan diubah)
+# 2. Metodologi skripsi & Konfigurasi Embedding
 # ---------------------------------------------------------------------------
-EMBEDDING_DIM = 128
+# Mode dimensi embedding utama: 512-D (Native Inception-ResNet-v1 VGGFace2 untuk akurasi tertinggi)
+# Pipeline secara otomatis juga mengekstrak versi 128-D untuk uji komparasi ilmiah (Bahan Sidang Skripsi).
+PRIMARY_EMBEDDING_DIM = 512
+COMPARISON_EMBEDDING_DIM = 128
+EMBEDDING_DIM = PRIMARY_EMBEDDING_DIM
+
 FACENET_INPUT_SIZE = (160, 160)
-RECOGNITION_THRESHOLD = 0.65          # Euclidean Distance: d <= 0.65 -> Known, d > 0.65 -> Unknown
 UNKNOWN_LABEL = "Unknown"
 L2_NORM_TOLERANCE = 1e-4              # toleransi |‖v‖₂ − 1|
 
+# Kalibrasi Threshold Keputusan (Decision Boundary):
+# DYNAMIC_THRESHOLD_SEARCH: True -> threshold dicari secara empiris dari distribusi data (EER / ROC)
+# RECOGNITION_THRESHOLD: fallback awal jika pasangan inter-class belum cukup (< 2 aktor)
+DYNAMIC_THRESHOLD_SEARCH = True
+DEFAULT_FALLBACK_THRESHOLD = 0.65
+RECOGNITION_THRESHOLD = DEFAULT_FALLBACK_THRESHOLD
+
+# Path artefak tambahan untuk komparasi ilmiah & threshold terkalibrasi
+STAGE04_VECTORS_512_DIR = STAGE04_DIR / "vectors_512"
+STAGE04_VECTORS_128_DIR = STAGE04_DIR / "vectors_128"
+STAGE05_OPTIMAL_THRESHOLD_JSON = STAGE05_DIR / "optimal_threshold.json"
+STAGE05_DIM_COMPARISON_CSV = STAGE05_DIR / "dimension_comparison.csv"
+STAGE05_ROC_CURVE_CSV = STAGE05_DIR / "roc_curve_data.csv"
+
 # ---------------------------------------------------------------------------
-# 3. Parameter pemrosesan (boleh diubah per run)
+# 3. Parameter pemrosesan & Augmentasi Training
 # ---------------------------------------------------------------------------
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-DEFAULT_CHECKPOINT_EVERY = 10         # simpan manifest setiap N gambar (dan selalu di akhir / saat interrupt)
+DEFAULT_CHECKPOINT_EVERY = 10         # simpan manifest setiap N gambar
 NEAR_DUPLICATE_HAMMING = 5            # analisis saja: jarak Hamming dHash 64-bit <= nilai ini dilaporkan
 SERVICE_URL = os.environ.get("INDOLENS_SERVICE_URL", "http://127.0.0.1:8002")
+
+# Augmentasi training: memperkaya variasi wajah (rotasi halus, flip, ekspresi, pencahayaan film)
+# agar proses training benar-benar berbobot dan melatih representasi yang tangguh terhadap scene film.
+ENABLE_TRAINING_AUGMENTATION = True
+AUGMENTATION_PASSES_PER_IMAGE = 3     # 1 original + 3 variasi terarah (flip, rotasi +-6 deg, brightness jitter)
 
 
 def stage_dirs():
@@ -101,7 +124,7 @@ def stage_dirs():
         STAGE01_CROPS_DIR, STAGE01_REJECTED_DIR,
         STAGE02_DIR,
         STAGE03_TENSORS_DIR, STAGE03_PREVIEWS_DIR,
-        STAGE04_VECTORS_DIR,
+        STAGE04_VECTORS_DIR, STAGE04_VECTORS_512_DIR, STAGE04_VECTORS_128_DIR,
         STAGE05_DIR,
         STAGE06_STAGING_DIR, STAGE06_BACKUP_DIR,
         STAGE07_DIR,

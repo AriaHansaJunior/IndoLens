@@ -1,10 +1,7 @@
 /* ==========================================
-   INDOLENS - ACTOR LIST STYLESHEET
+   INDOLENS - COMPACT ACTOR LIST STYLESHEET
    ========================================== */
 
-/* ------------------------------------------
-   1. ROOT & VARIABLES
-   ------------------------------------------ */
 :root {
     --bg-dark: #05070E;
     --card-bg: #0B0F19;
@@ -15,252 +12,240 @@
     --text-white: #FFFFFF;
     --text-muted: #8F9BBA;
     --known-green: #00FF66;
-    --unknown-white: #FFFFFF;
+    --unknown-red: #FF4D4D;
     --transition-fast: 0.2s ease;
-    --transition-medium: 0.3s ease;
-}
-
-body {
-    background-color: var(--bg-dark);
-    color: var(--text-white);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    animation: fadeIn var(--transition-medium);
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 .actors-container {
-    max-width: 1200px;
-    width: 90%;
-    margin: 0 auto;
-    padding: 20px 0 60px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 6px;
+    flex: 1;
+    min-height: 0;
 }
 
 /* ------------------------------------------
-   2. HEADER
+   HEADER & INLINE SEARCH BAR
    ------------------------------------------ */
-.actors-header {
+.actors-header-bar {
     display: flex;
     align-items: center;
-    gap: 24px;
-    padding: 16px 0;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    margin-bottom: 4px;
 }
 
-.btn-back {
-    display: inline-flex;
+.header-title-wrap {
+    display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 18px;
-    background: #1A2130;
-    border: 1px solid var(--border-color);
-    color: var(--text-white);
-    font-weight: 600;
-    font-size: 14px;
-    border-radius: 10px;
-    text-decoration: none;
-    transition: all var(--transition-fast);
-}
-
-.btn-back:hover {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #FFFFFF;
-    box-shadow: 0 4px 16px var(--border-glow);
-    transform: translateX(-3px);
-}
-
-.btn-back svg {
-    transition: transform var(--transition-fast);
-}
-
-.btn-back:hover svg {
-    transform: translateX(-3px);
+    gap: 12px;
 }
 
 .page-title {
-    font-size: 24px;
+    font-size: 23px;
     font-weight: 700;
     color: var(--text-white);
+    margin: 0;
 }
 
-/* ------------------------------------------
-   3. SEARCH
-   ------------------------------------------ */
+.actor-count-pill {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--primary);
+    background: rgba(22, 93, 255, 0.12);
+    border: 1px solid rgba(22, 93, 255, 0.3);
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
 .search-section {
-    width: 100%;
     position: relative;
-    max-width: 600px;
-    margin: 0 auto;
+    width: 320px;
+    max-width: 100%;
 }
 
 .search-input {
     width: 100%;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px 20px 16px 52px;
+    border-radius: 8px;
+    padding: 8px 14px 8px 38px;
     color: var(--text-white);
-    font-size: 16px;
+    font-size: 15px;
     outline: none;
-    transition: all var(--transition-medium);
+    box-sizing: border-box;
+    transition: all var(--transition-fast);
 }
 
 .search-input:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 16px var(--border-glow);
+    box-shadow: 0 0 12px var(--border-glow);
 }
 
 .search-icon {
     position: absolute;
-    left: 18px;
+    left: 12px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--text-muted);
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
 }
 
 /* ------------------------------------------
-   4. GRID
+   ACTORS GRID (COMPACT & SCROLLABLE IF OVERFLOW)
    ------------------------------------------ */
 .actors-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* Desktop default: 4/row */
-    gap: 24px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 240px));
+    gap: 16px;
     width: 100%;
-    transition: all var(--transition-medium);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 4px 16px 4px;
+    align-content: start;
+    box-sizing: border-box;
 }
 
-.empty-state {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 60px 20px;
-    background: var(--card-bg);
-    border: 1px dashed var(--border-color);
-    border-radius: 16px;
-    color: var(--text-muted);
+.actors-grid::-webkit-scrollbar {
+    width: 5px;
+}
+.actors-grid::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+.actors-grid::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
 }
 
 /* ------------------------------------------
-   5. CARD
+   COMPACT ACTOR CARD
    ------------------------------------------ */
 .actor-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
+    border-radius: 12px;
     overflow: hidden;
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
     display: flex;
     flex-direction: column;
+    cursor: pointer;
 }
 
 .actor-card:hover {
-    transform: translateY(-8px) scale(1.02);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 16px var(--border-glow);
+    transform: translateY(-4px);
     border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 12px var(--border-glow);
 }
 
-/* Hidden by Search */
 .actor-card.hidden {
     display: none !important;
 }
 
-.card-content {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    flex: 1;
-}
-
-.actor-name {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-white);
-    margin: 0;
-}
-
-.actor-role-label {
-    font-size: 12px;
-    color: #00FF66;
-    font-weight: 500;
-    margin-top: 2px;
-}
-
-.status-badge {
-    align-self: flex-start;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.status-known {
-    background: rgba(0, 255, 102, 0.15);
-    color: #00FF66;
-    border: 1px solid rgba(0, 255, 102, 0.35);
-    box-shadow: 0 0 10px rgba(0, 255, 102, 0.15);
-}
-
-.status-unknown {
-    background: rgba(255, 59, 48, 0.15);
-    color: #FF4D4D;
-    border: 1px solid rgba(255, 77, 77, 0.4);
-    box-shadow: 0 0 10px rgba(255, 77, 77, 0.2);
-}
-
-/* ------------------------------------------
-   6. IMAGE
-   ------------------------------------------ */
 .card-image-wrapper {
-    width: 100%;
-    aspect-ratio: 3 / 4;
-    overflow: hidden;
     position: relative;
-    background-color: #000000;
+    width: 100%;
+    height: clamp(160px, 23vh, 210px);
+    overflow: hidden;
+    background-color: #03050a;
 }
 
 .actor-photo {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform var(--transition-medium);
+    object-position: center 20%;
+    transition: transform 0.3s ease;
+    display: block;
 }
 
 .actor-card:hover .actor-photo {
     transform: scale(1.05);
 }
 
-/* ------------------------------------------
-   7. BUTTON
-   ------------------------------------------ */
+.status-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    backdrop-filter: blur(8px);
+}
+
+.status-known {
+    background: rgba(0, 255, 102, 0.2);
+    color: var(--known-green);
+    border: 1px solid rgba(0, 255, 102, 0.5);
+    box-shadow: 0 0 8px rgba(0, 255, 102, 0.25);
+}
+
+.status-unknown {
+    background: rgba(255, 77, 77, 0.2);
+    color: var(--unknown-red);
+    border: 1px solid rgba(255, 77, 77, 0.5);
+    box-shadow: 0 0 8px rgba(255, 77, 77, 0.25);
+}
+
+.card-content {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    justify-content: space-between;
+}
+
+.card-text-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.actor-name {
+    font-size: 16.5px;
+    font-weight: 700;
+    color: var(--text-white);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.actor-role-label {
+    font-size: 13px;
+    color: var(--known-green);
+    font-weight: 600;
+}
+
 .btn-detail {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     width: 100%;
-    padding: 12px;
-    margin-top: auto;
+    padding: 7px 10px;
     background-color: #1A2130;
     color: var(--text-white);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
     font-weight: 600;
     text-decoration: none;
+    box-sizing: border-box;
     transition: all var(--transition-fast);
-    gap: 8px;
 }
 
 .btn-detail:hover {
@@ -270,24 +255,43 @@ body {
 }
 
 /* ------------------------------------------
-   8. RESPONSIVE
+   EMPTY STATES
    ------------------------------------------ */
-@media (max-width: 1200px) {
-    /* Laptop */
-    .actors-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px 20px;
+    background: var(--card-bg);
+    border: 1px dashed var(--border-color);
+    border-radius: 12px;
+    color: var(--text-muted);
 }
 
-@media (max-width: 900px) {
-    /* Tablet */
+.empty-state h3 {
+    font-size: 16px;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.empty-state p {
+    font-size: 13px;
+    margin: 0;
+}
+
+/* ------------------------------------------
+   RESPONSIVE
+   ------------------------------------------ */
+@media (max-width: 768px) {
     .actors-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+
+    .search-section {
+        width: 100%;
+    }
 }
 
-@media (max-width: 600px) {
-    /* Mobile */
+@media (max-width: 480px) {
     .actors-grid {
         grid-template-columns: 1fr;
     }

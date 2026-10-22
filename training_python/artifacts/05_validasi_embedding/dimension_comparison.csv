@@ -1,0 +1,3 @@
+dimension,intra_mean,intra_std,inter_mean,inter_std,separation_margin,optimal_threshold,pass_ratio_pct
+512,0.628,0.1144,0.0,0.0,0.372,0.8568,96.43
+128,0.612,0.1266,0.0,0.0,0.388,0.8652,92.86

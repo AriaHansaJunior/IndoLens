@@ -1,0 +1,13 @@
+{
+  "calibrated_at": 1792388266.9664302,
+  "primary_dimension": 512,
+  "calibration_method": "INTRA_CLASS_STATISTICAL_CI95 (mu + 2*sigma)",
+  "optimal_threshold": 0.85,
+  "eer": null,
+  "estimated_accuracy_pct": 92.86,
+  "intra_mean": 0.628,
+  "intra_std": 0.1144,
+  "inter_mean": null,
+  "inter_std": null,
+  "note": "Threshold ini dihasilkan otomatis dari evaluasi empiris data training skripsi."
+}

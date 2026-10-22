@@ -1,0 +1,292 @@
+{
+  "items": {
+    "1": {
+      "image_id": 1,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-01.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-01.jpg",
+      "dimensions": [
+        414,
+        415
+      ],
+      "status": "success",
+      "faces_detected": 1,
+      "bbox": [
+        167,
+        56,
+        253,
+        172
+      ],
+      "confidence": 0.9656,
+      "crop_dimensions": [
+        86,
+        116
+      ],
+      "crop_path": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\crops\\1\\1.png",
+      "processed_at": 1792388259.252803
+    },
+    "5": {
+      "image_id": 5,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-05.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-05.jpg",
+      "dimensions": [
+        1200,
+        674
+      ],
+      "status": "multi_face",
+      "faces_detected": 2,
+      "detected_boxes": [
+        {
+          "bbox": [
+            504,
+            160,
+            678,
+            379
+          ],
+          "conf": 0.9071
+        },
+        {
+          "bbox": [
+            1051,
+            89,
+            1116,
+            189
+          ],
+          "conf": 0.8503
+        }
+      ],
+      "rejected_audit_dir": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\rejected\\1",
+      "processed_at": 1792388259.285602
+    },
+    "6": {
+      "image_id": 6,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-06.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-06.jpg",
+      "dimensions": [
+        300,
+        300
+      ],
+      "status": "success",
+      "faces_detected": 1,
+      "bbox": [
+        110,
+        40,
+        190,
+        146
+      ],
+      "confidence": 0.949,
+      "crop_dimensions": [
+        80,
+        106
+      ],
+      "crop_path": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\crops\\1\\6.png",
+      "processed_at": 1792388259.298399
+    },
+    "7": {
+      "image_id": 7,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-07.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-07.jpg",
+      "dimensions": [
+        828,
+        998
+      ],
+      "status": "success",
+      "faces_detected": 1,
+      "bbox": [
+        280,
+        153,
+        388,
+        294
+      ],
+      "confidence": 0.8893,
+      "crop_dimensions": [
+        108,
+        141
+      ],
+      "crop_path": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\crops\\1\\7.png",
+      "processed_at": 1792388259.4723272
+    },
+    "8": {
+      "image_id": 8,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-08.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-08.jpg",
+      "dimensions": [
+        375,
+        208
+      ],
+      "status": "success",
+      "faces_detected": 1,
+      "bbox": [
+        136,
+        49,
+        209,
+        150
+      ],
+      "confidence": 0.9426,
+      "crop_dimensions": [
+        73,
+        101
+      ],
+      "crop_path": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\crops\\1\\8.png",
+      "processed_at": 1792388259.499062
+    },
+    "9": {
+      "image_id": 9,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-09.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-09.jpg",
+      "dimensions": [
+        750,
+        500
+      ],
+      "status": "multi_face",
+      "faces_detected": 3,
+      "detected_boxes": [
+        {
+          "bbox": [
+            247,
+            81,
+            383,
+            264
+          ],
+          "conf": 0.9424
+        },
+        {
+          "bbox": [
+            592,
+            121,
+            660,
+            201
+          ],
+          "conf": 0.894
+        },
+        {
+          "bbox": [
+            37,
+            248,
+            67,
+            294
+          ],
+          "conf": 0.6879
+        }
+      ],
+      "rejected_audit_dir": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\rejected\\1",
+      "processed_at": 1792388259.5362885
+    },
+    "10": {
+      "image_id": 10,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-03.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-03.jpg",
+      "dimensions": [
+        599,
+        333
+      ],
+      "status": "success",
+      "faces_detected": 1,
+      "bbox": [
+        227,
+        39,
+        320,
+        169
+      ],
+      "confidence": 0.958,
+      "crop_dimensions": [
+        93,
+        130
+      ],
+      "crop_path": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\crops\\1\\10.png",
+      "processed_at": 1792388259.5544543
+    },
+    "11": {
+      "image_id": 11,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-04.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-04.jpg",
+      "dimensions": [
+        547,
+        365
+      ],
+      "status": "success",
+      "faces_detected": 1,
+      "bbox": [
+        251,
+        84,
+        402,
+        273
+      ],
+      "confidence": 0.9041,
+      "crop_dimensions": [
+        151,
+        189
+      ],
+      "crop_path": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\crops\\1\\11.png",
+      "processed_at": 1792388259.5668638
+    },
+    "12": {
+      "image_id": 12,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-02.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-02.jpg",
+      "dimensions": [
+        386,
+        264
+      ],
+      "status": "success",
+      "faces_detected": 1,
+      "bbox": [
+        143,
+        45,
+        222,
+        148
+      ],
+      "confidence": 0.9686,
+      "crop_dimensions": [
+        79,
+        103
+      ],
+      "crop_path": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\crops\\1\\12.png",
+      "processed_at": 1792388259.5902364
+    },
+    "13": {
+      "image_id": 13,
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "relative_path": "actor-images/1-bayu-skak/bayu-skak-10.jpg",
+      "absolute_path": "C:\\laragon\\www\\IndoLens\\storage\\app\\public\\actor-images\\1-bayu-skak\\bayu-skak-10.jpg",
+      "dimensions": [
+        658,
+        452
+      ],
+      "status": "success",
+      "faces_detected": 1,
+      "bbox": [
+        244,
+        49,
+        339,
+        172
+      ],
+      "confidence": 0.9519,
+      "crop_dimensions": [
+        95,
+        123
+      ],
+      "crop_path": "C:\\laragon\\www\\IndoLens\\training_python\\artifacts\\01_ekstraksi_wajah\\crops\\1\\13.png",
+      "processed_at": 1792388259.607048
+    }
+  },
+  "updated_at": 1792388259.6070497
+}

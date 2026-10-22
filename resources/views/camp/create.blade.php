@@ -7,14 +7,8 @@
 @section('content')
 <div class="camp-form-container">
 
-    <!-- Header Navigation -->
+    <!-- Header -->
     <header class="camp-form-header">
-        <a href="{{ route('camp.index') }}" class="btn-back">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-            <span>Back to Camp</span>
-        </a>
         <div class="form-title-group">
             <h1 class="page-title">Add New Actor</h1>
             <p class="camp-subtitle">Register a new actor profile into the database</p>

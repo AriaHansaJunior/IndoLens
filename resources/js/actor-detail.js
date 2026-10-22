@@ -25,10 +25,8 @@ const ActorDetail = {
      */
     cacheDOM() {
         this.elements = {
-            btnBack: document.getElementById('btnBack'),
             filmographyList: document.getElementById('filmographyList'),
             charLabel: document.getElementById('actorCharacterLabel'),
-            hintLabel: document.getElementById('actorHintLabel'),
             nameGroup: document.querySelector('.actor-name-group'),
         };
     },
@@ -73,15 +71,9 @@ const ActorDetail = {
                         this.elements.charLabel.textContent = `Role: ${charName}`;
                         this.elements.charLabel.style.display = '';
                     }
-                    if (this.elements.hintLabel) {
-                        this.elements.hintLabel.style.display = 'none';
-                    }
                 } else {
                     if (this.elements.charLabel) {
                         this.elements.charLabel.style.display = 'none';
-                    }
-                    if (this.elements.hintLabel) {
-                        this.elements.hintLabel.style.display = '';
                     }
                 }
             } catch (err) {
@@ -106,12 +98,10 @@ const ActorDetail = {
      * Currently rendered via Blade, but this is reserved for future enhancements (e.g. infinite scroll).
      */
     renderFilmography() {
-        // Example: add animation delay to each list item for a cascade effect
         if (this.elements.filmographyList) {
             const items = this.elements.filmographyList.querySelectorAll('li');
             items.forEach((item, index) => {
-                item.style.opacity = '0';
-                item.style.animation = `fadeIn 0.3s ease forwards ${index * 0.1}s`;
+                item.style.animation = `fadeIn 0.3s ease forwards ${index * 0.08}s`;
             });
         }
     }

@@ -1,0 +1,21 @@
+{
+  "actors": {
+    "bayu_eko_moektito": {
+      "actor_id": 1,
+      "full_name": "Bayu Eko Moektito",
+      "slug": "bayu_eko_moektito",
+      "files": [
+        "1.npy",
+        "10.npy",
+        "11.npy",
+        "12.npy",
+        "13.npy",
+        "6.npy",
+        "7.npy",
+        "8.npy"
+      ]
+    }
+  },
+  "updated_at": 1792388267.4400153,
+  "total_staged_embeddings": 8
+}

@@ -10,13 +10,14 @@
         "11.npy",
         "12.npy",
         "13.npy",
-        "5.npy",
         "6.npy",
         "7.npy",
-        "8.npy",
-        "9.npy"
+        "8.npy"
       ]
     }
   },
-  "updated_at": 1792050045.8057463
+  "optimal_threshold": 0.85,
+  "calibration_method": "INTRA_CLASS_STATISTICAL_CI95 (mu + 2*sigma)",
+  "embedding_dim": 512,
+  "updated_at": 1792388267.4580996
 }

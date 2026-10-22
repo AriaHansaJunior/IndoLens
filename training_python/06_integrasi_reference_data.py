@@ -161,33 +161,80 @@ def run_stage_06(promote_to_production: bool = True):
     else:
         cfg.PRODUCTION_EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 4. Promosi Staging ke Production (Merge tanpa menghapus aktor lain)
+    # 4. Promosi Staging ke Production
+    #    - Folder aktor yang diintegrasi dibuat PERSIS sama dengan set tervalidasi:
+    #      file .npy lama yang tidak lolos validasi (mis. gambar multi-face / zero-face /
+    #      gambar yang sudah dihapus di CAMP) dibuang dari runtime agar tidak ikut dicocokkan.
+    #    - Folder aktor lain yang tidak ada di run ini TIDAK disentuh.
+    #    - Backup lengkap sudah dibuat di langkah 3 sebelum perubahan apa pun.
     prod_manifest = load_manifest(cfg.PRODUCTION_MANIFEST)
     prod_actors = prod_manifest.get("actors", {}) if isinstance(prod_manifest, dict) else {}
+    pruned_stale = {}
 
     for slug, info in actors_map.items():
         prod_actor_dir = cfg.PRODUCTION_EMBEDDINGS_DIR / slug
         prod_actor_dir.mkdir(parents=True, exist_ok=True)
+        validated = set(info["files"])
 
-        # Salin file .npy baru
+        # Salin file .npy tervalidasi
         for fname in info["files"]:
             shutil.copy2(cfg.STAGE06_STAGING_DIR / slug / fname, prod_actor_dir / fname)
 
-        # Update manifest entry
+        # Buang embedding stale yang tidak lolos validasi pipeline ini
+        stale = sorted(f.name for f in prod_actor_dir.glob("*.npy") if f.name not in validated)
+        for fname in stale:
+            (prod_actor_dir / fname).unlink()
+        if stale:
+            pruned_stale[slug] = stale
+            print(f"[*] {info['full_name']}: {len(stale)} embedding stale dibuang dari runtime -> {stale}")
+
+        active = sorted(f.name for f in prod_actor_dir.glob("*.npy"))
+        if set(active) != validated:
+            raise RuntimeError(f"Verifikasi gagal untuk {slug}: runtime={active}, validated={sorted(validated)}")
+
         prod_actors[slug] = {
             "actor_id": info["actor_id"],
             "full_name": info["full_name"],
             "slug": slug,
-            "files": sorted([f.name for f in prod_actor_dir.glob("*.npy")]),
+            "files": active,
         }
+
+    # Baca optimal threshold dari Stage 05 jika ada
+    optimal_th = cfg.DEFAULT_FALLBACK_THRESHOLD
+    calib_method = "DEFAULT"
+    if cfg.STAGE05_OPTIMAL_THRESHOLD_JSON.exists():
+        try:
+            with open(cfg.STAGE05_OPTIMAL_THRESHOLD_JSON, "r", encoding="utf-8") as f:
+                th_data = json.load(f)
+                optimal_th = th_data.get("optimal_threshold", optimal_th)
+                calib_method = th_data.get("calibration_method", calib_method)
+        except Exception:
+            pass
 
     # Simpan manifest baru di production
     prod_manifest_data = {
         "actors": prod_actors,
+        "optimal_threshold": optimal_th,
+        "calibration_method": calib_method,
+        "embedding_dim": cfg.PRIMARY_EMBEDDING_DIM,
         "updated_at": time.time(),
     }
     save_manifest_atomic(cfg.PRODUCTION_MANIFEST, prod_manifest_data)
     print(f"[OK] Berhasil dipromosikan ke runtime: {cfg.PRODUCTION_EMBEDDINGS_DIR}")
+    print(f"[OK] Threshold runtime diselaraskan : {optimal_th} ({calib_method})")
+    print(f"[OK] Dimensi embedding diselaraskan : {cfg.PRIMARY_EMBEDDING_DIM}-D")
+
+    # Update python/config/dataset.py jika ada
+    runtime_dataset_cfg = cfg.PROJECT_ROOT / "python" / "config" / "dataset.py"
+    if runtime_dataset_cfg.exists():
+        try:
+            content = runtime_dataset_cfg.read_text(encoding="utf-8")
+            content = re.sub(r'FACENET_EMBEDDING_DIM\s*=\s*\d+', f'FACENET_EMBEDDING_DIM = {cfg.PRIMARY_EMBEDDING_DIM}', content)
+            content = re.sub(r'FACE_DISTANCE_THRESHOLD\s*=\s*[0-9.]+', f'FACE_DISTANCE_THRESHOLD = {optimal_th}', content)
+            runtime_dataset_cfg.write_text(content, encoding="utf-8")
+            print(f"[OK] python/config/dataset.py diselaraskan (DIM={cfg.PRIMARY_EMBEDDING_DIM}, TH={optimal_th})")
+        except Exception as e:
+            print(f"[!] Warning update dataset.py: {e}")
 
     # 5. Opsional Sinyal Reload ke Microservice
     reload_success, reload_detail = trigger_service_reload()
@@ -201,6 +248,7 @@ def run_stage_06(promote_to_production: bool = True):
         "integrated_at": time.time(),
         "staged_count": staged_count,
         "actors_integrated": list(actors_map.keys()),
+        "pruned_stale_embeddings": pruned_stale,
         "backup_location": str(backup_target) if backup_target.exists() else None,
         "production_target": str(cfg.PRODUCTION_EMBEDDINGS_DIR),
         "service_reload_success": reload_success,

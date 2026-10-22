@@ -1,206 +1,166 @@
 /* ==========================================
-   INDOLENS - ACTOR DETAIL STYLESHEET
+   INDOLENS - COMPACT ACTOR DETAIL STYLESHEET
    ========================================== */
 
-/* ------------------------------------------
-   1. ROOT & VARIABLES
-   ------------------------------------------ */
 :root {
     --bg-dark: #05070E;
     --card-bg: #0B0F19;
     --primary: #165DFF;
     --primary-hover: #0E4BDB;
     --border-color: #2A3142;
+    --border-glow: rgba(22, 93, 255, 0.4);
     --text-white: #FFFFFF;
     --text-muted: #8F9BBA;
     --known-green: #00FF66;
+    --unknown-red: #FF4D4D;
     --transition-fast: 0.2s ease;
-    --transition-medium: 0.3s ease;
-}
-
-body {
-    background-color: var(--bg-dark);
-    color: var(--text-white);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    animation: fadeIn var(--transition-medium);
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 .detail-container {
-    max-width: 1000px;
-    width: 90%;
-    margin: 0 auto;
-    padding: 20px 0 60px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    flex: 1;
+    min-height: 0;
 }
 
 /* ------------------------------------------
-   2. HEADER
-   ------------------------------------------ */
-.detail-header {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.logo-badge {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    background: linear-gradient(135deg, var(--primary), #0042D9);
-    color: #FFFFFF;
-    font-weight: 800;
-    font-size: 20px;
-    letter-spacing: 1px;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(22, 93, 255, 0.3);
-    text-decoration: none;
-}
-
-/* ------------------------------------------
-   3. NAVIGATION
-   ------------------------------------------ */
-.nav-section {
-    display: flex;
-    align-items: center;
-}
-
-.btn-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    background-color: var(--card-bg);
-    color: var(--text-white);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all var(--transition-fast);
-}
-
-.btn-back:hover {
-    background-color: var(--primary);
-    border-color: var(--primary);
-    transform: scale(1.03);
-}
-
-/* ------------------------------------------
-   4. PHOTO
+   CONTENT SECTION (SIDE-BY-SIDE)
    ------------------------------------------ */
 .detail-content {
     display: flex;
-    gap: 40px;
-    align-items: flex-start;
+    gap: 20px;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    box-sizing: border-box;
 }
 
+/* ------------------------------------------
+   PHOTO CARD (LEFT)
+   ------------------------------------------ */
 .actor-photo-wrapper {
-    width: 320px;
+    width: clamp(220px, 22vw, 290px);
     flex-shrink: 0;
-    border-radius: 16px;
+    border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--border-color);
-    background-color: #000000;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-    animation: fadePhoto 0.5s ease;
+    background-color: #03050a;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
 }
 
 .actor-photo {
     width: 100%;
-    height: auto;
-    display: block;
+    height: 100%;
     object-fit: cover;
-    aspect-ratio: 3 / 4;
+    object-position: center 15%;
+    display: block;
 }
 
-@keyframes fadePhoto {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+.photo-badge-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    backdrop-filter: blur(8px);
+}
+
+.status-known {
+    background: rgba(0, 255, 102, 0.2);
+    color: var(--known-green);
+    border: 1px solid rgba(0, 255, 102, 0.5);
+    box-shadow: 0 0 8px rgba(0, 255, 102, 0.25);
+}
+
+.status-unknown {
+    background: rgba(255, 77, 77, 0.2);
+    color: var(--unknown-red);
+    border: 1px solid rgba(255, 77, 77, 0.5);
+    box-shadow: 0 0 8px rgba(255, 77, 77, 0.25);
 }
 
 /* ------------------------------------------
-   5. ACTOR
+   INFO PANEL (RIGHT)
    ------------------------------------------ */
 .actor-info {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
 }
 
 .actor-name-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
+}
+
+.actor-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .actor-title {
-    font-size: 36px;
+    font-size: 32px;
     font-weight: 800;
     color: var(--text-white);
     margin: 0;
+    letter-spacing: 0.3px;
     line-height: 1.2;
 }
 
-.actor-character {
-    font-size: 18px;
-    color: var(--known-green);
+.actor-character-pill {
+    font-size: 16px;
     font-weight: 600;
-}
-
-.actor-hint {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    color: #8F9BBA;
-    background: rgba(22, 93, 255, 0.08);
-    border: 1px dashed rgba(22, 93, 255, 0.3);
-    padding: 8px 14px;
-    border-radius: 8px;
-    width: fit-content;
-    line-height: 1.4;
-}
-
-.actor-hint svg {
-    color: #165DFF;
-    flex-shrink: 0;
+    color: var(--known-green);
+    background: rgba(0, 255, 102, 0.12);
+    border: 1px solid rgba(0, 255, 102, 0.35);
+    padding: 2px 10px;
+    border-radius: 6px;
 }
 
 /* ------------------------------------------
-   6. METADATA
+   METADATA GRID (COMPACT)
    ------------------------------------------ */
 .meta-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
     background: var(--card-bg);
-    padding: 24px;
-    border-radius: 12px;
+    padding: 8px 14px;
+    border-radius: 10px;
     border: 1px solid var(--border-color);
 }
 
 .meta-item {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .meta-label {
-    font-size: 12px;
+    font-size: 13.5px;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -208,58 +168,45 @@ body {
 }
 
 .meta-value {
-    font-size: 15px;
+    font-size: 17.5px;
     color: var(--text-white);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ------------------------------------------
-   7. BIOGRAPHY
+   FILMOGRAPHY & BIOGRAPHY (SIDE-BY-SIDE)
    ------------------------------------------ */
-.biography-section {
+.detail-split-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+}
+
+.detail-sub-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .section-title {
-    font-size: 18px;
+    font-size: 17.5px;
     font-weight: 700;
     color: var(--text-white);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 8px;
-}
-
-.biography-content {
-    font-size: 14px;
-    line-height: 1.6;
-    color: #D1D5DB;
-    max-height: 200px; /* Limits excessive height */
-    overflow-y: auto;
-    padding-right: 12px;
-}
-
-/* Custom Scrollbar for bio */
-.biography-content::-webkit-scrollbar {
-    width: 6px;
-}
-.biography-content::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-}
-.biography-content::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 10px;
-}
-
-/* ------------------------------------------
-   8. FILMOGRAPHY
-   ------------------------------------------ */
-.filmography-section {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 8px;
+    border-bottom: 1px solid rgba(42, 49, 66, 0.7);
+    padding-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
 }
 
 .filmography-list {
@@ -268,64 +215,156 @@ body {
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    max-height: clamp(140px, 27vh, 220px);
+    padding-right: 4px;
+}
+
+.filmography-list::-webkit-scrollbar,
+.biography-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.filmography-list::-webkit-scrollbar-thumb,
+.biography-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
 }
 
 .filmography-item {
-    position: relative;
-    padding-left: 20px;
-    font-size: 15px;
-    color: var(--text-white);
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 16.5px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(42, 49, 66, 0.35);
 }
 
-.filmography-item::before {
-    content: "•";
-    position: absolute;
-    left: 0;
-    color: var(--primary);
-    font-size: 18px;
-    line-height: 1;
-    top: 0;
+.film-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.film-title {
+    font-weight: 600;
+    font-size: 16.5px;
+    color: var(--text-white);
+}
+
+.film-role {
+    color: var(--known-green);
+    font-size: 15px;
+    font-weight: 500;
 }
 
 .film-year {
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: 14.5px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.empty-sub-text {
+    font-size: 16px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.biography-content {
+    font-size: 16.5px;
+    line-height: 1.55;
+    color: #C5CEE0;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    max-height: clamp(140px, 27vh, 220px);
+    padding-right: 6px;
 }
 
 /* ------------------------------------------
-   9. BUTTON
+   EXTERNAL LINKS
    ------------------------------------------ */
-/* Handled in Navigation section */
+.links-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: auto;
+}
+
+.links-label {
+    font-size: 15px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.links-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.link-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    padding: 3px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.link-pill:hover {
+    color: #FFFFFF;
+    border-color: var(--primary);
+    background: rgba(22, 93, 255, 0.12);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
 /* ------------------------------------------
-   10. RESPONSIVE
+   RESPONSIVE
    ------------------------------------------ */
 @media (max-width: 900px) {
     .detail-content {
         flex-direction: column;
         align-items: center;
-        gap: 32px;
     }
-    
+
     .actor-photo-wrapper {
         width: 100%;
-        max-width: 400px;
+        max-width: 320px;
+        height: 240px;
     }
 
-    .actor-title {
-        text-align: center;
-    }
-
-    .actor-character {
-        text-align: center;
-    }
-}
-
-@media (max-width: 600px) {
     .meta-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .detail-split-row {
         grid-template-columns: 1fr;
     }
 }

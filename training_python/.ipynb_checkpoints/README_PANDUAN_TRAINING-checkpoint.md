@@ -2,7 +2,7 @@
 
 # PANDUAN LENGKAP JUPYTER TRAINING PIPELINE — INDOLENS SKRIPSI
 
-Paket ini dirancang khusus untuk memproses dataset wajah aktor film Indonesia secara offline melalui **Jupyter Notebook (Anaconda)** menggunakan akselerasi GPU (NVIDIA RTX 4070) dan RAM 32 GB.
+Paket ini dirancang khusus untuk memproses dataset wajah aktor film Indonesia secara offline melalui **Jupyter Notebook (Anaconda)** menggunakan akselerasi GPU (NVIDIA RTX 4060) dan RAM 32 GB.
 
 Sistem web Laravel + FastAPI murni bertindak sebagai **Inference Engine** yang memuat hasil reference embedding `.npy` secara langsung tanpa beban komputasi training.
 

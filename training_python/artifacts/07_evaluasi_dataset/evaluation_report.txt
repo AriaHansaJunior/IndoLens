@@ -1,0 +1,37 @@
+===========================================================================
+  LAPORAN EVALUASI AKHIR PIPELINE TRAINING INDOLENS (SKRIPSI)
+===========================================================================
+Metode Deteksi Wajah   : YOLOv8-Face (conf=0.45)
+Model Ekstraksi Fitur  : FaceNet InceptionResnetV1 (vggface2)
+Dimensi Vektor Acuan   : 512-D (L2-Normalized)
+Metrik Jarak & Nilai   : Euclidean Distance (L2 Norm)
+Threshold Terkalibrasi : <= 0.85 (Metode: INTRA_CLASS_STATISTICAL_CI95 (mu + 2*sigma))
+Perangkat Komputasi    : CUDA GPU: NVIDIA GeForce RTX 4060 Laptop GPU (VRAM: 8.0 GB)
+
+---------------------------------------------------------------------------
+1. METRIK DATA PIPELINE (REAL COMPUTATION):
+  - Total Record MySQL          : 10
+  - Gambar Terbaca              : 10
+  - Gambar Rusak / Hilang       : 0
+  - Zero Face (Wajah Luput)     : 0
+  - Multi Face (Wajah Ambigu)   : 2
+  - Wajah Berhasil Di-crop      : 8
+  - Vektor Embedding Valid      : 8
+  - Aktor Terdaftar             : 1 aktor
+
+---------------------------------------------------------------------------
+2. AUDIT MATEMATIS JARAK EUCLIDEAN:
+  - Intra-Class (Satu Aktor)    : 28 pasang pengujian
+    * Mean Distance             : 0.628
+    * Min Distance              : 0.466
+    * Max Distance              : 0.9114
+    * Standar Deviasi           : 0.1144
+    * % Lolos Calibrated Th     : 67.9%
+  - Inter-Class (Antar Aktor)   : 0 pasang pengujian
+    * Catatan: Hanya 1 aktor di database; tidak memalsukan data cross-actor.
+
+---------------------------------------------------------------------------
+3. PENGUJIAN PROBE SET INDEPENDEN:
+  - Status Probe Set            : Belum disediakan (Opsional)
+  - Catatan Evaluasi            : Tidak ada probe set di training_python/probe_set. Akurasi pengujian independen tidak dipalsukan.
+===========================================================================

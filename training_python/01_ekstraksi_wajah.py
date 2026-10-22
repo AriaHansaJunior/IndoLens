@@ -42,17 +42,29 @@ except ImportError:
 
 # Load YOLO model
 from ultralytics import YOLO
+import torch
+
+
+def get_yolo_device():
+    """Deteksi perangkat GPU CUDA vs CPU untuk akselerasi YOLOv8."""
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        return 0, f"CUDA:0 ({gpu_name} - {vram_gb:.1f} GB VRAM)"
+    return "cpu", "CPU (Mode Standar)"
 
 
 def init_yolo():
     """Inisialisasi model YOLOv8 Face dari bobot resmi yang ada di storage/app/ai/weights/."""
     cfg.validate_paths(require_yolo=True)
+    device_id, device_str = get_yolo_device()
+    print(f"[*] Perangkat Akselerasi YOLO : {device_str}")
     print(f"[*] Memuat model YOLO Face dari: {cfg.YOLO_WEIGHTS}")
     model = YOLO(str(cfg.YOLO_WEIGHTS))
-    return model
+    return model, device_id
 
 
-def run_stage_01(force_reprocess: bool = False, limit: int = None):
+def run_stage_01(force_reprocess: bool = False, limit: int | None = None):
     """
     Eksekusi Stage 01: Ekstraksi Wajah dari gambar database Laravel.
     
@@ -60,7 +72,7 @@ def run_stage_01(force_reprocess: bool = False, limit: int = None):
     :param limit: Batasi jumlah gambar yang diproses (None = proses semua).
     """
     cfg.ensure_artifact_dirs()
-    model = init_yolo()
+    model, device_id = init_yolo()
 
     print("\n[Stage 01] Mengambil daftar gambar aktor resmi (MySQL Read-Only)...")
     try:
@@ -161,8 +173,9 @@ def run_stage_01(force_reprocess: bool = False, limit: int = None):
         # 3. Jalankan deteksi wajah YOLO
         try:
             # conf=0.45 standar yang dipakai yolo_service IndoLens
-            results = model.predict(img_bgr, conf=0.45, verbose=False)
-            boxes = results[0].boxes
+            pred_results = list(model.predict(img_bgr, conf=0.45, device=device_id, verbose=False))
+            first_pred = pred_results[0] if pred_results else None
+            boxes = getattr(first_pred, "boxes", None)
         except Exception as e:
             print(f"    [!] Error YOLO Inference: {e}")
             items[image_id_str] = {
@@ -179,10 +192,8 @@ def run_stage_01(force_reprocess: bool = False, limit: int = None):
             save_manifest_atomic(cfg.STAGE01_MANIFEST, {"items": items, "updated_at": time.time()})
             continue
 
-        num_faces = len(boxes) if boxes is not None else 0
-
-        # Kasus A: Nol wajah terdeteksi
-        if num_faces == 0:
+        # Kasus A: Nol wajah terdeteksi atau boxes None
+        if boxes is None or len(boxes) == 0:
             print(f"    [!] Nol wajah terdeteksi pada gambar ini (YOLO conf >= 0.45).")
             items[image_id_str] = {
                 "image_id": rec["image_id"],
@@ -196,9 +207,13 @@ def run_stage_01(force_reprocess: bool = False, limit: int = None):
                 "processed_at": time.time(),
             }
             stats["zero_face"] += 1
+            save_manifest_atomic(cfg.STAGE01_MANIFEST, {"items": items, "updated_at": time.time()})
+            continue
+
+        num_faces = len(boxes)
 
         # Kasus B: Lebih dari 1 wajah terdeteksi (Multi-Face Ambiguity)
-        elif num_faces > 1:
+        if num_faces > 1:
             print(f"    [!] Multi-face terdeteksi: ditemukan {num_faces} wajah. Wajah ambigu ditolak agar tidak salah identitas.")
             rejected_dir = cfg.STAGE01_REJECTED_DIR / actor_id_str
             rejected_dir.mkdir(parents=True, exist_ok=True)

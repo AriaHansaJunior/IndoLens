@@ -790,6 +790,7 @@ const CameraCapture = {
 
                 // Render bounding boxes over live viewfinder
                 this.renderBoundingBoxes(this.latestDetections, data.frame_dimensions);
+                this.renderDetectedFacesList(this.latestDetections);
                 const t_rendered = performance.now();
 
                 // Complete pipeline telemetry instrumentation (Capture -> Render)
@@ -1069,6 +1070,58 @@ const CameraCapture = {
         if (facenetLatencyEl) {
             facenetLatencyEl.textContent = `${Math.round(facenetMs)} ms`;
         }
+
+        this.renderDetectedFacesList(faces);
+    },
+
+    /**
+     * Render the Real-Time Detected Faces list in the side panel
+     */
+    renderDetectedFacesList(faces = []) {
+        const listEl = document.getElementById('detectedFacesList');
+        const emptyEl = document.getElementById('emptyFacesNote');
+        if (!listEl) return;
+
+        if (!faces || faces.length === 0) {
+            if (emptyEl) emptyEl.style.display = 'flex';
+            listEl.innerHTML = '';
+            return;
+        }
+
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        let html = '';
+        faces.forEach((face) => {
+            const isKnown = face.status === 'known';
+            const rawActor = face.actor || (face.db_record ? face.db_record.full_name : null);
+            const actorName = (isKnown && rawActor && rawActor !== 'Tidak Dikenali') ? rawActor : 'Unknown Person';
+            const distStr = typeof face.distance === 'number' && face.distance < 900 ? face.distance.toFixed(3) : '-';
+            const actorId = face.db_record ? face.db_record.id : null;
+            const charName = face.db_record ? face.db_record.current_character_name : null;
+
+            html += `
+                <div class="detected-face-card ${isKnown ? 'is-known' : 'is-unknown'}">
+                    <div class="face-card-header">
+                        <span class="face-badge ${isKnown ? 'badge-known' : 'badge-unknown'}">
+                            ${isKnown ? 'KNOWN' : 'UNKNOWN'}
+                        </span>
+                        <span class="face-dist">Dist: ${distStr}</span>
+                    </div>
+                    <div class="face-card-body">
+                        <strong class="face-name">${this.escapeHtml(actorName)}</strong>
+                        ${charName ? `<span class="face-role">Role: ${this.escapeHtml(charName)}</span>` : ''}
+                    </div>
+                    ${actorId ? `
+                        <a href="/actors/${actorId}" class="face-card-link">
+                            <span>Open Profile</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        listEl.innerHTML = html;
     },
 
     /**
@@ -1093,6 +1146,7 @@ const CameraCapture = {
         this.facesDetectedCount = 0;
         this.facenetProcessedCount = 0;
         this.updateYoloTelemetry(0, 0, 0, []);
+        this.renderDetectedFacesList([]);
 
         // Session 7: Reset video state
         this.prevFrameData = null;

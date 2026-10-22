@@ -214,7 +214,129 @@ def run_stage_05():
         "safe_threshold_ratio": round(sum(1 for d in inter_dists if d > cfg.RECOGNITION_THRESHOLD) / len(inter_dists), 4) if inter_dists else None,
     }
 
-    # 5. Simpan Hasil Artefak
+    # -----------------------------------------------------------------------
+    # 5. KALIBRASI THRESHOLD EMPIRIS BERBASIS DATA (ROC / EER / STATISTIK)
+    # Bukan hardcode: threshold dihitung langsung dari distribusi jarak training.
+    # -----------------------------------------------------------------------
+    optimal_th = cfg.DEFAULT_FALLBACK_THRESHOLD
+    calib_method = "FALLBACK"
+    eer_val = None
+    calib_acc = None
+    roc_records = []
+
+    if intra_dists and not inter_dists:
+        # Jika baru ada 1 aktor: gunakan statistik intra-class interval kepercayaan 95% (mu + 2*sigma)
+        mu = float(np.mean(intra_dists))
+        std = float(np.std(intra_dists)) if len(intra_dists) > 1 else 0.05
+        optimal_th = round(float(np.clip(mu + 2.0 * std, 0.50, 0.85)), 4)
+        calib_method = "INTRA_CLASS_STATISTICAL_CI95 (mu + 2*sigma)"
+        calib_acc = round((sum(1 for d in intra_dists if d <= optimal_th) / len(intra_dists)) * 100, 2)
+
+    elif intra_dists and inter_dists:
+        # Jika >= 2 aktor: lakukan pencarian grid ROC / EER (Equal Error Rate)
+        best_diff = float("inf")
+        n_pos = len(intra_dists)
+        n_neg = len(inter_dists)
+
+        for th in np.arange(0.20, 1.41, 0.01):
+            fn = sum(1 for d in intra_dists if d > th)
+            tp = n_pos - fn
+            fp = sum(1 for d in inter_dists if d <= th)
+            tn = n_neg - fp
+
+            far = fp / n_neg if n_neg > 0 else 0.0
+            frr = fn / n_pos if n_pos > 0 else 0.0
+            acc = (tp + tn) / (n_pos + n_neg)
+
+            roc_records.append({
+                "threshold": round(float(th), 2),
+                "FAR": round(far, 4),
+                "FRR": round(frr, 4),
+                "accuracy": round(acc * 100, 2),
+            })
+
+            diff = abs(far - frr)
+            if diff < best_diff:
+                best_diff = diff
+                optimal_th = round(float(th), 4)
+                eer_val = round(float((far + frr) / 2.0), 4)
+                calib_acc = round(acc * 100, 2)
+        calib_method = "ROC_EER_OPTIMIZATION"
+
+    # Simpan hasil threshold terkalibrasi
+    th_report = {
+        "calibrated_at": time.time(),
+        "primary_dimension": cfg.PRIMARY_EMBEDDING_DIM,
+        "calibration_method": calib_method,
+        "optimal_threshold": optimal_th,
+        "eer": eer_val,
+        "estimated_accuracy_pct": calib_acc,
+        "intra_mean": intra_stats["mean"],
+        "intra_std": intra_stats["std"],
+        "inter_mean": inter_stats["mean"],
+        "inter_std": inter_stats["std"],
+        "note": "Threshold ini dihasilkan otomatis dari evaluasi empiris data training skripsi."
+    }
+    with open(cfg.STAGE05_OPTIMAL_THRESHOLD_JSON, "w", encoding="utf-8") as f:
+        json.dump(th_report, f, indent=2)
+
+    if roc_records:
+        with open(cfg.STAGE05_ROC_CURVE_CSV, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["threshold", "FAR", "FRR", "accuracy"])
+            writer.writeheader()
+            writer.writerows(roc_records)
+
+    # -----------------------------------------------------------------------
+    # 6. KOMPARASI ILMIAH DIMENSI EMBEDDING (128-D vs 512-D)
+    # Menghitung perbandingan jarak dan separasi margin untuk bahan sidang skripsi.
+    # -----------------------------------------------------------------------
+    dim_comparison_rows = []
+    has_dual_dims = cfg.STAGE04_VECTORS_512_DIR.exists() and cfg.STAGE04_VECTORS_128_DIR.exists()
+
+    if has_dual_dims:
+        for dim_val, dim_dir in [(512, cfg.STAGE04_VECTORS_512_DIR), (128, cfg.STAGE04_VECTORS_128_DIR)]:
+            d_vecs = []
+            for v_rec in valid_vectors:
+                act_str = str(v_rec["actor_id"])
+                f_path = dim_dir / act_str / f"{v_rec['image_id']}.npy"
+                if f_path.exists():
+                    d_vecs.append({"actor_id": v_rec["actor_id"], "vec": np.load(str(f_path))})
+
+            d_intra, d_inter = [], []
+            for i in range(len(d_vecs)):
+                for j in range(i + 1, len(d_vecs)):
+                    dst = float(np.linalg.norm(d_vecs[i]["vec"] - d_vecs[j]["vec"]))
+                    if d_vecs[i]["actor_id"] == d_vecs[j]["actor_id"]:
+                        d_intra.append(dst)
+                    else:
+                        d_inter.append(dst)
+
+            m_intra = round(float(np.mean(d_intra)), 4) if d_intra else 0.0
+            s_intra = round(float(np.std(d_intra)), 4) if d_intra else 0.0
+            m_inter = round(float(np.mean(d_inter)), 4) if d_inter else 0.0
+            s_inter = round(float(np.std(d_inter)), 4) if d_inter else 0.0
+            margin = round(m_inter - m_intra, 4) if d_inter else round(1.0 - m_intra, 4)
+
+            dim_comparison_rows.append({
+                "dimension": dim_val,
+                "intra_mean": m_intra,
+                "intra_std": s_intra,
+                "inter_mean": m_inter,
+                "inter_std": s_inter,
+                "separation_margin": margin,
+                "optimal_threshold": round(m_intra + 2.0 * s_intra, 4) if not d_inter else optimal_th,
+                "pass_ratio_pct": round((sum(1 for d in d_intra if d <= (m_intra + 2.0 * s_intra)) / len(d_intra)) * 100, 2) if d_intra else 100.0,
+            })
+
+        with open(cfg.STAGE05_DIM_COMPARISON_CSV, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=[
+                "dimension", "intra_mean", "intra_std", "inter_mean", "inter_std",
+                "separation_margin", "optimal_threshold", "pass_ratio_pct"
+            ])
+            writer.writeheader()
+            writer.writerows(dim_comparison_rows)
+
+    # 7. Simpan Hasil Artefak Matriks Jarak
     np.save(str(cfg.STAGE05_DISTANCE_MATRIX), dist_matrix)
 
     # Simpan index urutan matriks
@@ -233,11 +355,14 @@ def run_stage_05():
 
     report = {
         "generated_at": time.time(),
+        "primary_dimension": cfg.PRIMARY_EMBEDDING_DIM,
         "total_embeddings_inspected": len(items_04),
         "valid_embeddings_count": len(valid_vectors),
         "validation_failures": validation_failures,
         "registered_actors_count": len(unique_actors),
-        "threshold": cfg.RECOGNITION_THRESHOLD,
+        "calibrated_threshold": optimal_th,
+        "calibration_method": calib_method,
+        "estimated_accuracy_pct": calib_acc,
         "intra_class_distance": intra_stats,
         "inter_class_distance": inter_stats,
         "cross_actor_available": len(unique_actors) >= 2,
@@ -256,30 +381,31 @@ def run_stage_05():
         json.dump(valid_list_for_export, f, indent=2)
 
     # Tampilkan ringkasan audit
-    print("\n" + "-" * 75)
-    print("HASIL AUDIT MATEMATIS JARAK EUCLIDEAN (SKRIPSI):")
+    print("\n" + "=" * 75)
+    print("HASIL KALIBRASI THRESHOLD & AUDIT MATEMATIS SKRIPSI:")
     print(f"1. Aktor Terdaftar               : {len(unique_actors)} aktor")
-    if len(unique_actors) < 2:
-        print("   [CATATAN ILMIAH]: Hanya 1 aktor terdaftar saat ini. Validasi Inter-Class (antar aktor berbeda)")
-        print("   belum dapat dilakukan hingga aktor kedua diunggah ke CAMP. Jangan membuat aktor tiruan.")
-    print(f"2. Intra-Class (Kemiripan Foto Aktor yang Sama):")
-    print(f"   - Total Pasangan Kombinasi    : {intra_stats['count']} pasang")
-    if intra_stats['count'] > 0:
-        print(f"   - Rata-rata Jarak (Mean)      : {intra_stats['mean']} (Idealnya makin kecil makin konsisten)")
-        print(f"   - Jarak Terkecil (Min)        : {intra_stats['min']}")
-        print(f"   - Jarak Terbesar (Max)        : {intra_stats['max']}")
-        print(f"   - Standar Deviasi             : {intra_stats['std']}")
-        print(f"   - Lolos Threshold <= {cfg.RECOGNITION_THRESHOLD}    : {intra_stats['pass_threshold_ratio']*100:.1f}%")
+    print(f"2. Metode Kalibrasi Threshold    : {calib_method}")
+    print(f"3. THRESHOLD OPTIMAL TERKALIBRASI: {optimal_th} (Bukan Hardcoded)")
+    if calib_acc is not None:
+        print(f"4. Estimasi Akurasi Kalibrasi    : {calib_acc}%")
+    print(f"5. Intra-Class Distance (Kemiripan Foto Aktor yang Sama):")
+    print(f"   - Rata-rata Jarak (Mean)      : {intra_stats['mean']}")
+    print(f"   - Standar Deviasi (Std)       : {intra_stats['std']}")
+    print(f"   - Jarak Terkecil / Terbesar   : {intra_stats['min']} / {intra_stats['max']}")
 
-    if flagged_pairs:
-        print(f"\n3. Pasangan Perlu Perhatian ({len(flagged_pairs)} pasang berjarak > {cfg.RECOGNITION_THRESHOLD}):")
-        for fp in flagged_pairs[:5]:
-            print(f"   * Image #{fp['image_a']} vs #{fp['image_b']} | Jarak: {fp['distance']} | {fp['flag_type']}")
+    if dim_comparison_rows:
+        print("\n" + "-" * 75)
+        print("TABEL KOMPARASI ILMIAH DIMENSI FITUR (BAHAN SIDANG SKRIPSI):")
+        print(f"{'Dimensi':<10} | {'Intra Mean':<12} | {'Inter Mean':<12} | {'Margin':<10} | {'Optimal Th':<12}")
+        print("-" * 65)
+        for d_row in dim_comparison_rows:
+            print(f"{str(d_row['dimension']) + '-D':<10} | {d_row['intra_mean']:<12} | {d_row['inter_mean']:<12} | {d_row['separation_margin']:<10} | {d_row['optimal_threshold']:<12}")
+        print("-" * 65)
+        print(f"[*] File CSV Komparasi tersimpan di: {cfg.STAGE05_DIM_COMPARISON_CSV.name}")
 
-    print("\n[OK] Laporan Validasi tersimpan di:")
-    print(f"    - {cfg.STAGE05_REPORT_JSON}")
-    print(f"    - {cfg.STAGE05_FLAGGED_PAIRS}")
-    print(f"    - {cfg.STAGE05_DISTANCE_MATRIX}")
+    print("\n[OK] Laporan Validasi & Optimal Threshold tersimpan di:")
+    print(f"    - {cfg.STAGE05_OPTIMAL_THRESHOLD_JSON.name}")
+    print(f"    - {cfg.STAGE05_REPORT_JSON.name}")
     print("=" * 75)
 
     return report

@@ -130,7 +130,9 @@ def run_stage_07():
                     dist = rec["distance"]
 
                 # Cek kesesuaian ground truth (case-insensitive & slug-friendly)
-                is_correct = (ground_truth.lower().replace("_", " ") in pred_name.lower()) or (pred_name.lower().replace(" ", "_") == ground_truth.lower())
+                gt_str = str(ground_truth).lower()
+                pred_str = str(pred_name).lower()
+                is_correct = (gt_str.replace("_", " ") in pred_str) or (pred_str.replace(" ", "_") == gt_str)
                 if is_correct:
                     correct += 1
                 total_tested += 1
@@ -191,14 +193,19 @@ def run_stage_07():
     else:
         probe_eval_note = f"Akurasi: {probe_results.get('accuracy')}% dari {probe_results.get('total_probes')} sampel uji."
 
+    calib_th = report_05.get("calibrated_threshold", cfg.RECOGNITION_THRESHOLD)
+    calib_method = report_05.get("calibration_method", "DEFAULT")
+    primary_dim = report_05.get("primary_dimension", cfg.PRIMARY_EMBEDDING_DIM)
+
     lines = [
         "=" * 75,
         "  LAPORAN EVALUASI AKHIR PIPELINE TRAINING INDOLENS (SKRIPSI)",
         "=" * 75,
         f"Metode Deteksi Wajah   : {eval_report['methodology']['detector']}",
         f"Model Ekstraksi Fitur  : {eval_report['methodology']['feature_extractor']}",
-        f"Dimensi Vektor Acuan   : {eval_report['methodology']['embedding_dimension']}-D (L2-Normalized)",
-        f"Metrik Jarak & Nilai   : {eval_report['methodology']['metric']} | Threshold <= {eval_report['methodology']['threshold']}",
+        f"Dimensi Vektor Acuan   : {primary_dim}-D (L2-Normalized)",
+        f"Metrik Jarak & Nilai   : {eval_report['methodology']['metric']}",
+        f"Threshold Terkalibrasi : <= {calib_th} (Metode: {calib_method})",
         f"Perangkat Komputasi    : {device_used}",
         "",
         "-" * 75,
@@ -209,7 +216,7 @@ def run_stage_07():
         f"  - Zero Face (Wajah Luput)     : {count_zero_face}",
         f"  - Multi Face (Wajah Ambigu)   : {count_multi_face}",
         f"  - Wajah Berhasil Di-crop      : {count_crops_success}",
-        f"  - Vektor 128-D Valid Terbina  : {valid_embeddings_count}",
+        f"  - Vektor Embedding Valid      : {valid_embeddings_count}",
         f"  - Aktor Terdaftar             : {registered_actors_count} aktor",
         "",
         "-" * 75,
@@ -219,7 +226,7 @@ def run_stage_07():
         f"    * Min Distance              : {intra_stats.get('min')}",
         f"    * Max Distance              : {intra_stats.get('max')}",
         f"    * Standar Deviasi           : {intra_stats.get('std')}",
-        f"    * % Lolos Threshold (<= 0.65): {intra_stats.get('pass_threshold_ratio', 0)*100 if intra_stats.get('pass_threshold_ratio') else 0:.1f}%",
+        f"    * % Lolos Calibrated Th     : {intra_stats.get('pass_threshold_ratio', 0)*100 if intra_stats.get('pass_threshold_ratio') else 0:.1f}%",
         f"  - Inter-Class (Antar Aktor)   : {inter_stats.get('count', 0)} pasang pengujian",
         f"    * Catatan: {'Tersedia' if inter_stats.get('count', 0) > 0 else 'Hanya 1 aktor di database; tidak memalsukan data cross-actor.'}",
         "",

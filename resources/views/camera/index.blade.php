@@ -7,38 +7,33 @@
 @section('content')
 <div class="camera-page-container">
     
-    <!-- Page Header -->
+    <!-- Clean Page Header -->
     <header class="camera-page-header">
         <div class="header-titles">
-            <div class="header-badge">
-                <span class="pulse-dot"></span>
-                <span>Camera Stream Ingestion</span>
-            </div>
-            <h1 class="page-title">Live Camera Capture</h1>
-            <p class="page-subtitle">Direct camera frame acquisition for the IndoLens pipeline.</p>
+            <h1 class="page-title">Live Camera Recognition</h1>
+            <p class="page-subtitle">Real-time actor identification stream powered by YOLOv8 &amp; FaceNet</p>
         </div>
-
-        <div class="stream-status-badge" id="cameraStatusBadge">
-            <span class="status-indicator-dot" id="statusDot"></span>
-            <span id="cameraStatusText">Camera Standby</span>
+        <div class="stream-status-pill" id="cameraStatusBadge">
+            <span class="status-indicator-dot" id="cameraStatusDot"></span>
+            <span id="cameraStatusText">Standby</span>
         </div>
     </header>
 
-    <!-- Main Camera Grid / Layout -->
+    <!-- Main Camera Layout (80% Camera, 20% Detected Faces) -->
     <div class="camera-grid">
         
-        <!-- Left / Top: Live Viewfinder View -->
+        <!-- Left (80%): Live Viewfinder -->
         <div class="viewfinder-card">
             
             <div class="viewfinder-container" id="viewfinderContainer">
                 
-                <!-- Live Video Element (Hidden until stream starts) -->
+                <!-- Live Video Element -->
                 <video id="cameraVideo" class="camera-video" playsinline autoplay muted style="display: none;"></video>
                 
-                <!-- Real-Time Face Detection Bounding Box Canvas (Hidden until stream starts) -->
+                <!-- Real-Time Face Detection Bounding Box Canvas -->
                 <canvas id="detectionCanvas" class="detection-canvas" style="display: none;"></canvas>
 
-                <!-- Hidden Canvas for Memory Frame Grab -->
+                <!-- Hidden Canvas for Frame Grab -->
                 <canvas id="captureCanvas" class="hidden-canvas" style="display: none;"></canvas>
 
                 <!-- Reticle Overlay / Framing Guide -->
@@ -50,205 +45,121 @@
                     <div class="reticle-center-guide"></div>
                 </div>
 
-                <!-- Feed Telemetry Pill (Overlaid on video) -->
+                <!-- Feed Telemetry Pill (Resolution & Facing) -->
                 <div class="video-overlay-pill" id="videoOverlayPill" style="display: none;">
                     <span id="overlayResolution">0 × 0</span>
                     <span class="pill-separator">•</span>
                     <span id="overlayFacingMode">Environment</span>
                 </div>
 
-                <!-- Session 7: Video State Indicator Pill (Overlaid on video) -->
+                <!-- Video State Indicator Pill (Running vs Paused) -->
                 <div class="video-state-pill" id="videoStatePill" style="display: none;">
                     <span class="video-state-icon" id="videoStateIcon">▶</span>
                     <span id="videoStateText">Video Running</span>
                 </div>
 
-                <!-- Session 7: Pause Action Overlay (DOM overlay for Open Actor Detail) -->
-                <div class="pause-action-overlay" id="pauseActionOverlay" style="display: none;">
-                    <!-- Populated dynamically by camera.js when video is paused and known actor exists -->
-                </div>
+                <!-- Pause Action Overlay (Open Actor Detail) -->
+                <div class="pause-action-overlay" id="pauseActionOverlay" style="display: none;"></div>
 
-                <!-- Standby / Permission Prompt Placeholder -->
+                <!-- Standby Placeholder -->
                 <div class="viewfinder-placeholder" id="cameraPlaceholder">
                     <div class="placeholder-icon-wrap">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                             <circle cx="12" cy="13" r="4"/>
                         </svg>
                     </div>
                     <h3 class="placeholder-title">Camera Feed Idle</h3>
-                    <p class="placeholder-desc">Grant camera permission and click <strong>Start Camera</strong> to begin capturing live video frames.</p>
-                    <button type="button" id="btnStartPrompt" class="btn-primary">
+                    <p class="placeholder-desc">Click <strong>Start Camera</strong> to begin real-time face detection and recognition.</p>
+                    <button type="button" id="btnStartPrompt" class="btn-primary-start">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="5 3 19 12 5 21 5 3"/>
                         </svg>
-                        Start Camera
+                        <span>Start Camera</span>
                     </button>
-                    <a href="/ca.crt" class="btn-cert-download" download="indolens-ca.crt" title="Download Local CA Certificate for Phone SSL">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Download SSL CA Certificate
-                    </a>
                 </div>
 
-                <!-- Error Notice Container -->
+                <!-- Error Notice Banner -->
                 <div class="camera-error-banner" id="cameraErrorBanner" style="display: none;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10"/>
                         <line x1="12" y1="8" x2="12" y2="12"/>
                         <line x1="12" y1="16" x2="12.01" y2="16"/>
                     </svg>
-                    <span id="cameraErrorMessage">Unable to access camera. Please verify camera permissions.</span>
+                    <span id="cameraErrorMessage">Unable to access camera. Please check permissions.</span>
                 </div>
 
             </div>
 
-            <!-- Controls Toolbar -->
+            <!-- Compact Camera Controls Bar -->
             <div class="camera-controls-bar">
-                <div class="controls-group main-actions">
+                <div class="controls-left">
                     <button type="button" id="btnToggleCamera" class="btn-control btn-start">
-                        <svg class="icon-play" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="5 3 19 12 5 21 5 3"/>
                         </svg>
                         <span id="btnToggleText">Start Camera</span>
                     </button>
 
-                    <button type="button" id="btnSwitchCamera" class="btn-control btn-secondary" title="Switch between Rear and Front Camera" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button type="button" id="btnSwitchCamera" class="btn-control btn-secondary" title="Flip Camera" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/>
                             <path d="M4 8V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/>
                             <polyline points="16 12 20 8 24 12"/>
                             <polyline points="8 12 4 16 0 12"/>
                         </svg>
-                        <span>Flip Camera</span>
+                        <span>Flip</span>
                     </button>
                 </div>
 
-                <!-- Capture Frame — full width row (Pipeline Active button removed; pipeline auto-starts with camera) -->
-                <div class="controls-group capture-actions">
-                    <button type="button" id="btnCaptureFrame" class="btn-control btn-capture btn-capture-full" title="Capture Single Frame into Memory" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <!-- Discreet Snapshot Action -->
+                <div class="controls-right">
+                    <button type="button" id="btnCaptureFrame" class="btn-control btn-capture-subtle" title="Snapshot Frame" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"/>
                             <circle cx="12" cy="12" r="3"/>
                         </svg>
-                        <span>Capture Frame</span>
+                        <span>Snapshot</span>
                     </button>
                 </div>
             </div>
 
         </div>
 
-        <!-- Right / Bottom: Stream Telemetry & Captured Frame Panel -->
-        <div class="telemetry-card">
+        <!-- Right (20%): Detected Faces & Recognition Results Panel -->
+        <div class="detected-panel">
             
-            <h2 class="card-title">Stream Telemetry</h2>
-
-            <!-- Metrics Grid -->
-            <div class="telemetry-grid">
-                
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Stream Status</span>
-                    <span class="telemetry-value highlight" id="statStreamStatus">Inactive</span>
+            <div class="detected-panel-header">
+                <div class="detected-title-wrap">
+                    <h2 class="panel-title">Faces Detected</h2>
+                    <span class="face-count-badge" id="statFacesCount">0</span>
                 </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Pipeline Stage</span>
-                    <span class="telemetry-value highlight-stage" id="statPipelineStage">STANDBY</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Faces Detected</span>
-                    <span class="telemetry-value highlight-faces" id="statFacesCount">0</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Recognition</span>
-                    <span class="telemetry-value highlight-recognition" id="statRecognitionStatus">Standby</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">FaceNet Vector</span>
-                    <span class="telemetry-value highlight-facenet" id="statFaceNetStatus">Standby</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">YOLO Inference</span>
-                    <span class="telemetry-value" id="statYoloLatency">0 ms</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">FaceNet Latency</span>
-                    <span class="telemetry-value" id="statFaceNetLatency">0 ms</span>
-                </div>
-
-                <!-- Session 7: Video State telemetry field -->
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Video State</span>
-                    <span class="telemetry-value highlight-video-state" id="statVideoState">Idle</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Active Device</span>
-                    <span class="telemetry-value" id="statCameraDevice">None</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Native Resolution</span>
-                    <span class="telemetry-value" id="statResolution">-</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Frames Ingested</span>
-                    <span class="telemetry-value counter" id="statFramesCaptured">0</span>
-                </div>
-
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Pipeline Rate</span>
-                    <span class="telemetry-value" id="statCaptureRate">0 FPS</span>
-                </div>
-
-                <div class="telemetry-item" style="grid-column: span 2;">
-                    <span class="telemetry-label">Latest Frame Buffer</span>
-                    <span class="telemetry-value" id="statFrameBuffer">-</span>
-                </div>
-
             </div>
 
-            <!-- Latest Captured Frame Preview -->
-            <div class="captured-preview-section">
-                <div class="section-sub-header">
-                    <h3 class="section-sub-title">Latest Captured Frame</h3>
-                    <span class="frame-tag" id="capturedFrameTag">No Frame Yet</span>
+            <!-- Dynamic Detected Faces List -->
+            <div class="detected-faces-container">
+                <div class="empty-faces-note" id="emptyFacesNote">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M8 15s1.5 2 4 2 4-2 4-2"/>
+                        <line x1="9" y1="9" x2="9.01" y2="9"/>
+                        <line x1="15" y1="9" x2="15.01" y2="9"/>
+                    </svg>
+                    <span>No faces detected in current frame</span>
                 </div>
+                
+                <div class="detected-faces-list" id="detectedFacesList"></div>
+            </div>
 
-                <div class="captured-frame-box" id="capturedFrameBox">
-                    <img id="capturedImagePreview" src="" alt="Latest Frame Preview" style="display: none;" class="captured-img">
-                    <div class="captured-empty-placeholder" id="capturedPlaceholder">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                            <polyline points="21 15 16 10 5 21"/>
-                        </svg>
-                        <span>Captured frame data will appear here</span>
-                    </div>
+            <!-- Compact Telemetry Summary Footer -->
+            <div class="telemetry-compact-footer">
+                <div class="stat-mini">
+                    <span class="mini-label">Inference</span>
+                    <span class="mini-val" id="statYoloLatency">0 ms</span>
                 </div>
-
-                <div class="captured-meta" id="capturedMeta" style="display: none;">
-                    <div class="meta-row">
-                        <span class="meta-key">Captured At:</span>
-                        <span class="meta-val" id="metaTimestamp">-</span>
-                    </div>
-                    <div class="meta-row">
-                        <span class="meta-key">Dimensions:</span>
-                        <span class="meta-val" id="metaDimensions">-</span>
-                    </div>
-                    <div class="meta-row">
-                        <span class="meta-key">Memory Format:</span>
-                        <span class="meta-val highlight-green" id="metaFormat">JPEG Blob (Available)</span>
-                    </div>
+                <div class="stat-mini">
+                    <span class="mini-label">Embedding</span>
+                    <span class="mini-val" id="statFaceNetLatency">0 ms</span>
                 </div>
             </div>
 

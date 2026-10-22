@@ -62,37 +62,30 @@ def load_model(device: torch.device):
     return model
 
 
-def compute_128d_embedding(model, tensor_hwc_normalized: np.ndarray, device: torch.device) -> np.ndarray:
+def compute_dual_embeddings(model, tensor_hwc_normalized: np.ndarray, device: torch.device):
     """
-    Menghitung vektor 128-D berstandar L2-Norm dari tensor input (160, 160, 3).
-    Kompatibel penuh dengan implementasi python/facenet/embedding_generator.py IndoLens:
-    1. Permute (H, W, C) -> (1, C, H, W)
-    2. Model forward pass -> 512-D
-    3. Truncate ke 128-D
-    4. L2-Normalize: v / ||v||_2
+    Menghitung vektor embedding 512-D (Native Inception-ResNet-v1 VGGFace2)
+    sekaligus 128-D (Proyeksi 128 Dimensi) berstandar L2-Norm.
+    
+    Kedua dimensi disimpan agar peneliti dapat melakukan audit komparasi ilmiah:
+    - 512-D: Representasi penuh, akurasi & kapasitas diskriminatif tertinggi.
+    - 128-D: Versi terkompresi untuk efisiensi komputasi & memori.
     """
-    # Tensor input: (160, 160, 3) float32
     tensor_chw = torch.from_numpy(tensor_hwc_normalized).permute(2, 0, 1).float().unsqueeze(0).to(device)
 
     with torch.no_grad():
         raw_output = model(tensor_chw).detach().cpu().numpy().flatten()
 
-    # Truncate ke 128 dimensi sesuai config skripsi
-    if len(raw_output) > cfg.EMBEDDING_DIM:
-        raw_128 = raw_output[:cfg.EMBEDDING_DIM]
-    elif len(raw_output) < cfg.EMBEDDING_DIM:
-        raw_128 = np.pad(raw_output, (0, cfg.EMBEDDING_DIM - len(raw_output)))
-    else:
-        raw_128 = raw_output
+    # 1. 512-D Full Native Vector
+    norm_512 = np.linalg.norm(raw_output)
+    emb_512 = (raw_output / norm_512 if norm_512 > 0 else raw_output).astype(np.float32)
 
-    # L2-Normalization
-    norm = np.linalg.norm(raw_128)
-    if norm > 0:
-        embedding_128 = raw_128 / norm
-    else:
-        embedding_128 = raw_128
+    # 2. 128-D Projected Vector
+    raw_128 = raw_output[:128] if len(raw_output) >= 128 else np.pad(raw_output, (0, 128 - len(raw_output)))
+    norm_128 = np.linalg.norm(raw_128)
+    emb_128 = (raw_128 / norm_128 if norm_128 > 0 else raw_128).astype(np.float32)
 
-    return embedding_128.astype(np.float32)
+    return emb_512, emb_128
 
 
 def run_stage_04(force_reprocess: bool = False):
@@ -164,36 +157,50 @@ def run_stage_04(force_reprocess: bool = False):
         try:
             tensor_norm = np.load(str(tensor_path))
             t_infer_start = time.perf_counter()
-            emb_128 = compute_128d_embedding(model, tensor_norm, device)
+            emb_512, emb_128 = compute_dual_embeddings(model, tensor_norm, device)
             infer_ms = round((time.perf_counter() - t_infer_start) * 1000, 2)
 
-            # Validasi dimensi & norma
-            if len(emb_128) != cfg.EMBEDDING_DIM:
-                raise ValueError(f"Dimensi tidak sesuai ({len(emb_128)}), harus {cfg.EMBEDDING_DIM}")
+            l2_512 = float(np.linalg.norm(emb_512))
+            l2_128 = float(np.linalg.norm(emb_128))
 
-            l2_norm = float(np.linalg.norm(emb_128))
-            if abs(l2_norm - 1.0) > cfg.L2_NORM_TOLERANCE:
-                raise ValueError(f"L2-norm tidak 1.0 (nilai: {l2_norm:.6f})")
+            if abs(l2_512 - 1.0) > cfg.L2_NORM_TOLERANCE or abs(l2_128 - 1.0) > cfg.L2_NORM_TOLERANCE:
+                raise ValueError(f"L2-norm tidak valid: 512D={l2_512:.6f}, 128D={l2_128:.6f}")
 
-            # Simpan vektor (.npy)
+            # 1. Simpan Vektor 512-D
+            dir_512 = cfg.STAGE04_VECTORS_512_DIR / actor_id_str
+            dir_512.mkdir(parents=True, exist_ok=True)
+            vec_512_file = dir_512 / f"{img_id_str}.npy"
+            np.save(str(vec_512_file), emb_512)
+
+            # 2. Simpan Vektor 128-D
+            dir_128 = cfg.STAGE04_VECTORS_128_DIR / actor_id_str
+            dir_128.mkdir(parents=True, exist_ok=True)
+            vec_128_file = dir_128 / f"{img_id_str}.npy"
+            np.save(str(vec_128_file), emb_128)
+
+            # 3. Simpan Primary Vector (sesuai cfg.PRIMARY_EMBEDDING_DIM)
+            primary_emb = emb_512 if cfg.PRIMARY_EMBEDDING_DIM == 512 else emb_128
             actor_vec_dir = cfg.STAGE04_VECTORS_DIR / actor_id_str
             actor_vec_dir.mkdir(parents=True, exist_ok=True)
-            vector_file = actor_vec_dir / f"{img_id_str}.npy"
-            np.save(str(vector_file), emb_128)
+            primary_file = actor_vec_dir / f"{img_id_str}.npy"
+            np.save(str(primary_file), primary_emb)
 
             items_04[img_id_str] = {
                 "image_id": int(img_id_str),
                 "actor_id": int(actor_id_str),
                 "full_name": full_name,
                 "status": "success",
-                "dimension": len(emb_128),
-                "l2_norm": round(l2_norm, 6),
-                "vector_path": str(vector_file),
+                "primary_dimension": cfg.PRIMARY_EMBEDDING_DIM,
+                "vector_path": str(primary_file),
+                "vector_512_path": str(vec_512_file),
+                "vector_128_path": str(vec_128_file),
+                "l2_norm_512": round(l2_512, 6),
+                "l2_norm_128": round(l2_128, 6),
                 "inference_ms": infer_ms,
                 "processed_at": time.time(),
             }
             success_count += 1
-            print(f"    [OK] Sukses 128-D (L2-norm={l2_norm:.4f}, {infer_ms} ms) -> {vector_file.name}")
+            print(f"    [OK] Sukses Ekstraksi (512-D & 128-D, {infer_ms} ms) -> {primary_file.name}")
 
         except Exception as e:
             print(f"    [!] Error ekstraksi: {e}")

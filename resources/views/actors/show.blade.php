@@ -6,45 +6,37 @@
 
 @section('content')
 <div class="detail-container">
-    
-    <!-- Page Header -->
-    <header class="detail-header">
-        <a href="/actors" id="btnBack" class="btn-back">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-            Back
-        </a>
-    </header>
 
-    <!-- Content Section -->
+    <!-- Compact Side-by-Side Detail Layout -->
     <section class="detail-content">
-        <!-- Photo -->
+        
+        <!-- Left: Actor Photo Card -->
         <div class="actor-photo-wrapper">
-            <img src="{{ asset('storage/' . $actor->photo) }}" alt="{{ $actor->full_name }}" class="actor-photo" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($actor->full_name) }}&background=0D1321&color=165DFF&size=400'">
+            <img src="{{ $actor->photo_url }}" alt="{{ $actor->full_name }}" class="actor-photo" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($actor->full_name) }}&background=0D1321&color=165DFF&size=400'">
+            
+            <div class="photo-badge-overlay">
+                <span class="status-badge status-{{ $actor->is_detected ? 'known' : 'unknown' }}">
+                    {{ $actor->is_detected ? 'KNOWN' : 'UNKNOWN' }}
+                </span>
+            </div>
         </div>
 
-        <!-- Details -->
+        <!-- Right: Actor Information Panel -->
         <div class="actor-info">
             
+            <!-- Actor Name & Detected Character -->
             <div class="actor-name-group" data-actor-name="{{ $actor->full_name }}">
-                <h1 class="actor-title">{{ $actor->full_name }}</h1>
-                
-                @if($actor->is_detected && $actor->current_character_name)
-                    <div class="actor-character" id="actorCharacterLabel">Role: {{ $actor->current_character_name }}</div>
-                    <div class="actor-hint" id="actorHintLabel" style="display:none;">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                        Play a film starring {{ $actor->full_name }} to detect character name
-                    </div>
-                @else
-                    <div class="actor-character" id="actorCharacterLabel" style="display:none;"></div>
-                    <div class="actor-hint" id="actorHintLabel">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                        Play a film starring {{ $actor->full_name }} to detect character name
-                    </div>
-                @endif
+                <div class="actor-title-row">
+                    <h1 class="actor-title">{{ $actor->full_name }}</h1>
+                    @if($actor->is_detected && $actor->current_character_name)
+                        <span class="actor-character-pill" id="actorCharacterLabel">Role: {{ $actor->current_character_name }}</span>
+                    @else
+                        <span class="actor-character-pill" id="actorCharacterLabel" style="display:none;"></span>
+                    @endif
+                </div>
             </div>
 
+            <!-- Compact Metadata Row -->
             <div class="meta-grid">
                 <div class="meta-item">
                     <span class="meta-label">Gender</span>
@@ -64,46 +56,63 @@
                 </div>
             </div>
 
-            <!-- Filmography & Character Roles from MySQL Database -->
-            @if($actor->characters && $actor->characters->count() > 0)
-                <div class="filmography-section">
+            <!-- Side-by-side Filmography & Biography Row -->
+            <div class="detail-split-row">
+                
+                <!-- Filmography & Character Roles -->
+                <div class="detail-sub-card filmography-card">
                     <div class="section-title">Filmography &amp; Roles</div>
-                    <ul class="filmography-list">
-                        @foreach($actor->characters as $char)
-                            <li class="filmography-item">
-                                <span>
-                                    <strong>{{ $char->movie->title ?? 'Unknown Film' }}</strong>
-                                    &mdash;
-                                    <em>Role: {{ $char->character_name }}</em>
-                                </span>
-                                @if($char->movie && $char->movie->release_year)
-                                    <span class="film-year">{{ $char->movie->release_year }}</span>
-                                @endif
-                            </li>
-                        @endforeach
-                    </ul>
+                    @if($actor->characters && $actor->characters->count() > 0)
+                        <ul class="filmography-list" id="filmographyList">
+                            @foreach($actor->characters as $char)
+                                <li class="filmography-item">
+                                    <div class="film-info">
+                                        <span class="film-title">{{ $char->movie->title ?? 'Unknown Film' }}</span>
+                                        <span class="film-role">Role: {{ $char->character_name }}</span>
+                                    </div>
+                                    @if($char->movie && $char->movie->release_year)
+                                        <span class="film-year">{{ $char->movie->release_year }}</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p class="empty-sub-text">No recorded movie roles.</p>
+                    @endif
                 </div>
-            @endif
 
-            <div class="biography-section">
-                <div class="section-title">Biography</div>
-                <div class="biography-content">
-                    {!! nl2br(e($actor->biography ?? 'Biography is not yet available for this actor.')) !!}
+                <!-- Biography -->
+                <div class="detail-sub-card biography-card">
+                    <div class="section-title">Biography</div>
+                    <div class="biography-content">
+                        {!! nl2br(e($actor->biography ?? 'Biography is not yet available for this actor.')) !!}
+                    </div>
                 </div>
+
             </div>
 
+            <!-- External Links (if available) -->
             @if($actor->instagram || $actor->wikipedia || $actor->imdb)
-                <div class="biography-section">
-                    <div class="section-title">External Links</div>
-                    <div class="biography-content" style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
+                <div class="links-row">
+                    <span class="links-label">External Profiles:</span>
+                    <div class="links-group">
                         @if($actor->instagram)
-                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->instagram, ['http://', 'https://']) ? $actor->instagram : 'https://' . $actor->instagram }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Instagram</a>
+                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->instagram, ['http://', 'https://']) ? $actor->instagram : 'https://' . $actor->instagram }}" target="_blank" rel="noopener noreferrer" class="link-pill">
+                                <span>Instagram</span>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+                            </a>
                         @endif
                         @if($actor->wikipedia)
-                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->wikipedia, ['http://', 'https://']) ? $actor->wikipedia : 'https://' . $actor->wikipedia }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">Wikipedia</a>
+                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->wikipedia, ['http://', 'https://']) ? $actor->wikipedia : 'https://' . $actor->wikipedia }}" target="_blank" rel="noopener noreferrer" class="link-pill">
+                                <span>Wikipedia</span>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+                            </a>
                         @endif
                         @if($actor->imdb)
-                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->imdb, ['http://', 'https://']) ? $actor->imdb : 'https://' . $actor->imdb }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">IMDb</a>
+                            <a href="{{ \Illuminate\Support\Str::startsWith($actor->imdb, ['http://', 'https://']) ? $actor->imdb : 'https://' . $actor->imdb }}" target="_blank" rel="noopener noreferrer" class="link-pill">
+                                <span>IMDb</span>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+                            </a>
                         @endif
                     </div>
                 </div>
