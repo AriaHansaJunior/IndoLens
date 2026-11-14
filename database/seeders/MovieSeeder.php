@@ -27,7 +27,7 @@ class MovieSeeder extends Seeder
                 'title' => 'Sekawan Limo',
                 'release_year' => 2024,
                 'genre' => 'Comedy, Horror',
-                'poster' => 'sekawan_limo.jpg',
+                'poster' => null,
                 'synopsis' => 'Kisah horor komedi pendakian gunung.',
                 'description' => 'A comedy horror film directed by Bayu Skak.',
             ],

@@ -12,6 +12,7 @@
    GLOBAL DARK THEME TOKENS & BASE
    ========================================== */
 :root {
+    color-scheme: dark;
     --bg-dark: #05070E;
     --card-bg: #0B0F19;
     --primary: #165DFF;
@@ -26,6 +27,7 @@ body {
     background-color: var(--bg-dark);
     color: var(--text-white);
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 /* ==========================================
@@ -39,14 +41,6 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-}
-
-@media (min-width: 901px) {
-    body:has(.camera-page-container),
-    body:has(.detail-container) {
-        overflow: hidden;
-        height: 100vh;
-    }
 }
 
 .main-content {
@@ -84,17 +78,17 @@ body {
 }
 
 .brand-logo-img {
-    height: 44px;
+    height: 48px;
     width: auto;
-    max-height: 44px;
+    max-height: 48px;
     object-fit: contain;
     display: block;
-    filter: drop-shadow(0 2px 10px rgba(22, 93, 255, 0.4));
+    filter: drop-shadow(0 2px 10px rgba(0, 194, 255, 0.35));
     transition: filter 0.2s ease, transform 0.2s ease;
 }
 
 .brand-logo-link:hover .brand-logo-img {
-    filter: drop-shadow(0 4px 16px rgba(22, 93, 255, 0.65));
+    filter: drop-shadow(0 4px 16px rgba(0, 194, 255, 0.6));
 }
 
 /* ------------------------------------------
@@ -198,11 +192,21 @@ body {
 }
 
 /* ------------------------------------------
-   RESPONSIVE MEDIA QUERIES (MOBILE & TABLET)
+   RESPONSIVE MEDIA QUERIES (1024, 768, 425, 375, 320)
    ------------------------------------------ */
+@media (max-width: 1024px) {
+    .app-container {
+        padding: 12px 18px 20px;
+    }
+
+    .header-left {
+        gap: 18px;
+    }
+}
+
 @media (max-width: 768px) {
     .app-container {
-        padding: 14px 14px 28px;
+        padding: 14px 16px 28px;
     }
 
     .app-header {
@@ -222,7 +226,11 @@ body {
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 425px) {
+    .app-container {
+        padding: 12px 12px 24px;
+    }
+
     .header-left {
         flex-direction: column;
         align-items: stretch;
@@ -233,13 +241,85 @@ body {
         justify-content: flex-start;
     }
 
+    .brand-logo-img {
+        height: 40px;
+        max-height: 40px;
+    }
+
     .app-nav {
         width: 100%;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .nav-link {
         justify-content: center;
+        padding: 7px 8px;
+        font-size: 12.5px;
+    }
+
+    .author-badge {
+        width: 100%;
+        justify-content: space-between;
+        box-sizing: border-box;
+        padding: 6px 8px 6px 14px;
+    }
+}
+
+@media (max-width: 375px) {
+    .app-container {
+        padding: 10px 10px 22px;
+    }
+
+    .nav-link {
+        gap: 4px;
+        padding: 6px 6px;
+        font-size: 12px;
+    }
+
+    .author-info {
+        gap: 6px;
+        font-size: 12px;
+    }
+
+    .author-nim {
+        font-size: 11.5px;
+    }
+}
+
+@media (max-width: 320px) {
+    .app-container {
+        padding: 8px 8px 20px;
+    }
+
+    .brand-logo-img {
+        height: 36px;
+        max-height: 36px;
+    }
+
+    .nav-link {
+        font-size: 11px;
+        padding: 6px 4px;
+    }
+
+    .nav-link svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    .author-badge {
+        gap: 8px;
+        padding: 5px 6px 5px 10px;
+    }
+
+    .author-info {
+        font-size: 11px;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .author-avatar-wrapper {
+        width: 32px;
+        height: 32px;
     }
 }

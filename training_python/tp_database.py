@@ -13,6 +13,7 @@ Kebijakan Keamanan & Read-Only:
 
 import os
 import re
+from typing import Any, Dict, List
 try:
     from tp_config import LARAVEL_ENV_FILE
 except ImportError:

@@ -21,7 +21,7 @@
         <header class="app-header">
             <div class="header-left">
                 <a href="/" class="brand-logo-link" title="IndoLens — Indonesian Actor Recognition System">
-                    <img src="{{ asset('img/logo.png') }}" alt="IndoLens" class="brand-logo-img">
+                    <img src="{{ asset('img/logo.png') }}?v={{ @filemtime(public_path('img/logo.png')) ?: 2 }}" alt="IndoLens" class="brand-logo-img">
                 </a>
 
                 <!-- Navigation Links -->

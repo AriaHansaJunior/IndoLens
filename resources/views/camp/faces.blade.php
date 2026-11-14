@@ -7,7 +7,6 @@
 @section('content')
 <div class="camp-faces-container">
 
-    <!-- Header -->
     <header class="camp-form-header">
         <div class="form-title-group">
             <h1 class="page-title">Manage Face Images</h1>
@@ -52,7 +51,7 @@
         <h2 class="card-section-title">Upload Face Images</h2>
         <p class="section-desc">Select one or more face reference images for <strong>{{ $actor->full_name }}</strong>. Supported formats: <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.webp</code>, <code>.avif</code>. No arbitrary quantity limit.</p>
 
-        <form id="uploadFacesForm" method="POST" action="{{ route('camp.faces.store', $actor->id) }}" enctype="multipart/form-data">
+        <form id="uploadFacesForm" method="POST" action="{{ route('camp.faces.store', $actor) }}" enctype="multipart/form-data">
             @csrf
 
             <div class="dropzone-area" id="facesDropzone">
@@ -105,7 +104,7 @@
         @if($actor->images->count() > 0)
             <div class="faces-gallery-grid">
                 @foreach($actor->images as $img)
-                    <div class="face-gallery-item" id="face-card-{{ $img->id }}">
+                    <div class="face-gallery-item" id="face-card-{{ $img->uuid }}">
                         <div class="face-img-wrapper">
                             <img src="{{ asset('storage/' . $img->image) }}" alt="{{ $actor->full_name }} Face Image" class="face-thumb" loading="lazy">
                         </div>
@@ -114,8 +113,8 @@
                             <button 
                                 type="button" 
                                 class="btn-delete-face js-btn-delete-face" 
-                                data-actor-id="{{ $actor->id }}" 
-                                data-image-id="{{ $img->id }}"
+                                data-actor-uuid="{{ $actor->uuid }}"
+                                data-image-uuid="{{ $img->uuid }}"
                                 data-image-name="{{ $img->image }}"
                                 title="Delete Face Image"
                             >

@@ -1,6 +1,5 @@
 /**
- * IndoLens - Actor Detail Script
- * Implementation of Session 11 Workflow & Reserved Methods
+ * IndoLens - Actor Detail Module
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,25 +26,15 @@ const ActorDetail = {
         this.elements = {
             filmographyList: document.getElementById('filmographyList'),
             charLabel: document.getElementById('actorCharacterLabel'),
+            statusBadge: document.getElementById('actorDetailStatusBadge'),
             nameGroup: document.querySelector('.actor-name-group'),
         };
     },
 
-    /* =========================================================================
-       RESERVED METHODS
-       ========================================================================= */
-
-    /**
-     * Initialize page components.
-     */
     initializePage() {
-        this.bindBackButton();
         this.renderFilmography();
     },
 
-    /**
-     * Real-time sync with API to update character / hint dynamically.
-     */
     initializeRealtimeSync() {
         if (!this.elements.nameGroup) return;
 
@@ -66,31 +55,24 @@ const ActorDetail = {
                 const isDetected = activeActors.includes(actorName);
                 const charName = charMap[actorName];
 
-                if (isDetected && charName) {
-                    if (this.elements.charLabel) {
+                if (this.elements.statusBadge) {
+                    this.elements.statusBadge.textContent = isDetected ? 'KNOWN' : 'UNKNOWN';
+                    this.elements.statusBadge.classList.toggle('status-known', isDetected);
+                    this.elements.statusBadge.classList.toggle('status-unknown', !isDetected);
+                }
+
+                if (this.elements.charLabel) {
+                    if (isDetected && charName) {
                         this.elements.charLabel.textContent = `Role: ${charName}`;
                         this.elements.charLabel.style.display = '';
-                    }
-                } else {
-                    if (this.elements.charLabel) {
+                    } else {
                         this.elements.charLabel.style.display = 'none';
                     }
                 }
             } catch (err) {
-                // Ignore background polling errors
+                // Ignore transient polling errors
             }
         }, 2000);
-    },
-
-    /**
-     * Bind Back Button Event.
-     * Hardlink is preferred per requirement, but this method is reserved for future dynamic handling.
-     */
-    bindBackButton() {
-        if (this.elements.btnBack) {
-            // Already handled via native href="/actors"
-            // Adding a visual ripple or custom event could be placed here.
-        }
     },
 
     /**

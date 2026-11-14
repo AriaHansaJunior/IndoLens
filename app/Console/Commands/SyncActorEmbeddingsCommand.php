@@ -29,17 +29,19 @@ class SyncActorEmbeddingsCommand extends Command
      */
     public function handle(): int
     {
-        $this->info('IndoLens - Reference Embedding Synchronization (Session 8)');
-        $this->line('Connecting to Python YOLO + FaceNet service on http://127.0.0.1:8002 ...');
+        $yoloUrl = rtrim(config('recognition.yolo_service_url', 'http://127.0.0.1:8002'), '/');
+
+        $this->info('IndoLens - Reference Embedding Synchronization');
+        $this->line("Connecting to Python YOLO + FaceNet service on {$yoloUrl} ...");
 
         try {
-            $healthRes = Http::timeout(3)->get('http://127.0.0.1:8002/health');
+            $healthRes = Http::timeout(3)->get("{$yoloUrl}/health");
             if (!$healthRes->ok()) {
-                $this->error('YOLO service returned non-200 status. Is port 8002 active?');
+                $this->error("YOLO service returned non-200 status from {$yoloUrl}.");
                 return self::FAILURE;
             }
         } catch (\Throwable $e) {
-            $this->error('Cannot reach YOLO service on port 8002: ' . $e->getMessage());
+            $this->error("Cannot reach YOLO service at {$yoloUrl}: " . $e->getMessage());
             return self::FAILURE;
         }
 
@@ -47,7 +49,7 @@ class SyncActorEmbeddingsCommand extends Command
         if ($actors->isEmpty()) {
             $this->warn('No actors found in database.');
             try {
-                Http::timeout(5)->post('http://127.0.0.1:8002/prune-orphaned-actors', [
+                Http::timeout(5)->post("{$yoloUrl}/prune-orphaned-actors", [
                     'active_actors' => [],
                 ]);
             } catch (\Throwable $e) {
@@ -58,7 +60,7 @@ class SyncActorEmbeddingsCommand extends Command
 
         $this->info("Found {$actors->count()} actor(s) in database. Synchronizing reference face images...");
 
-        // Session 8: Prune orphaned actor references not present in MySQL
+        // Prune orphaned actor references not present in MySQL
         $activeActorsPayload = $actors->map(function ($actor) {
             return [
                 'actor_id' => $actor->id,
@@ -69,7 +71,7 @@ class SyncActorEmbeddingsCommand extends Command
 
         $prunedOrphansCount = 0;
         try {
-            $pruneRes = Http::timeout(10)->post('http://127.0.0.1:8002/prune-orphaned-actors', [
+            $pruneRes = Http::timeout(10)->post("{$yoloUrl}/prune-orphaned-actors", [
                 'active_actors' => $activeActorsPayload,
             ]);
             if ($pruneRes->ok()) {
@@ -113,7 +115,7 @@ class SyncActorEmbeddingsCommand extends Command
             }
 
             try {
-                $response = Http::timeout(60)->post('http://127.0.0.1:8002/sync-actor-embedding', [
+                $response = Http::timeout(60)->post("{$yoloUrl}/sync-actor-embedding", [
                     'actor_id' => $actor->id,
                     'full_name' => $actor->full_name,
                     'images' => $imagePayload,
@@ -143,7 +145,7 @@ class SyncActorEmbeddingsCommand extends Command
 
         // Final memory reload
         try {
-            $reloadRes = Http::timeout(5)->post('http://127.0.0.1:8002/reload-embeddings');
+            $reloadRes = Http::timeout(5)->post("{$yoloUrl}/reload-embeddings");
             if ($reloadRes->ok()) {
                 $reloadStats = $reloadRes->json();
                 $this->info('✓ In-memory reference embeddings fully updated across all actors.');

@@ -18,6 +18,8 @@ return [
 
     'python_binary' => 'python',
 
+    'yolo_service_url' => env('YOLO_SERVICE_URL', 'http://127.0.0.1:8002'),
+
     // Process timeout in seconds. 0 = unlimited (recommended for long videos).
     'process_timeout' => 0,
 

@@ -27,7 +27,7 @@
     <!-- Compact Actors Grid -->
     <section class="actors-grid" id="actorsGrid">
         @forelse($actors as $actor)
-            <div class="actor-card" data-name="{{ $actor->full_name }}" data-id="{{ $actor->id }}" data-is-known="{{ $actor->is_detected ? '1' : '0' }}">
+            <div class="actor-card" data-name="{{ $actor->full_name }}" data-uuid="{{ $actor->uuid }}" data-is-known="{{ $actor->is_detected ? '1' : '0' }}">
                 
                 <div class="card-image-wrapper">
                     <img src="{{ $actor->photo_url }}" alt="{{ $actor->full_name }}" class="actor-photo" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($actor->full_name) }}&background=0D1321&color=165DFF&size=400'">
@@ -47,7 +47,7 @@
                         @endif
                     </div>
                     
-                    <a href="/actors/{{ $actor->id }}" class="btn-detail">
+                    <a href="{{ route('actors.show', $actor) }}" class="btn-detail">
                         <span>View Detail</span>
                     </a>
                 </div>

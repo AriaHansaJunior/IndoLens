@@ -1,6 +1,5 @@
 /**
- * IndoLens - Actor List Script
- * Implementation of Session 10 Workflow & Reserved Methods
+ * IndoLens - Actor List Module
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -33,35 +32,24 @@ const ActorList = {
         };
     },
 
-    /* =========================================================================
-       RESERVED METHODS
-       ========================================================================= */
-
-    /**
-     * Initialize card elements and bind click events.
-     */
     initializeCards() {
         if (!this.elements.gridContainer) return;
         
-        // Cache all actor cards for quick filtering
         const cardElements = this.elements.gridContainer.querySelectorAll('.actor-card');
         this.cards = Array.from(cardElements).map(card => {
-            // Get actor name from data attribute or fallback to text content
             const name = card.getAttribute('data-name') || '';
-            const id = card.getAttribute('data-id') || '';
-            
-            // Bind click event for the whole card if needed
+            const uuid = card.getAttribute('data-uuid') || '';
+
             card.addEventListener('click', (e) => {
-                // Prevent opening twice if they clicked the button directly
                 if (!e.target.closest('.btn-detail')) {
-                    this.openActor(id);
+                    this.openActor(uuid);
                 }
             });
 
             return {
                 element: card,
                 name: name.toLowerCase(),
-                id: id
+                uuid: uuid,
             };
         });
     },
@@ -116,12 +104,9 @@ const ActorList = {
         }
     },
 
-    /**
-     * Navigate to Actor Detail page.
-     */
-    openActor(id) {
-        if (id) {
-            window.location.href = `/actors/${id}`;
+    openActor(uuid) {
+        if (uuid) {
+            window.location.href = `/actors/${uuid}`;
         }
     },
 

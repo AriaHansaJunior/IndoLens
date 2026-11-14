@@ -7,15 +7,13 @@
 @section('content')
 <div class="detail-container">
 
-    <!-- Compact Side-by-Side Detail Layout -->
     <section class="detail-content">
         
-        <!-- Left: Actor Photo Card -->
         <div class="actor-photo-wrapper">
             <img src="{{ $actor->photo_url }}" alt="{{ $actor->full_name }}" class="actor-photo" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($actor->full_name) }}&background=0D1321&color=165DFF&size=400'">
             
             <div class="photo-badge-overlay">
-                <span class="status-badge status-{{ $actor->is_detected ? 'known' : 'unknown' }}">
+                <span class="status-badge status-{{ $actor->is_detected ? 'known' : 'unknown' }}" id="actorDetailStatusBadge">
                     {{ $actor->is_detected ? 'KNOWN' : 'UNKNOWN' }}
                 </span>
             </div>

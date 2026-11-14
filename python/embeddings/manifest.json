@@ -7,17 +7,19 @@
       "files": [
         "1.npy",
         "10.npy",
-        "11.npy",
-        "12.npy",
-        "13.npy",
+        "2.npy",
+        "3.npy",
+        "4.npy",
+        "5.npy",
         "6.npy",
         "7.npy",
-        "8.npy"
+        "8.npy",
+        "9.npy"
       ]
     }
   },
   "optimal_threshold": 0.85,
   "calibration_method": "INTRA_CLASS_STATISTICAL_CI95 (mu + 2*sigma)",
   "embedding_dim": 512,
-  "updated_at": 1792388267.4580996
+  "updated_at": 1794635792.9463923
 }

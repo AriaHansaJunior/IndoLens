@@ -7,22 +7,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from config.dataset import EMBEDDING_PATH
-from config.config import FACE_DISTANCE_THRESHOLD
+from config.dataset import EMBEDDING_PATH, FACENET_EMBEDDING_DIM, FACE_DISTANCE_THRESHOLD
 from recognition.euclidean_distance import calculate_distance, calculate_all_distances
 from recognition.threshold import verify_threshold, classify_result
 
 
 def load_actor_embeddings(actor_name, base_path=EMBEDDING_PATH, allowed_files=None, full_name=None):
-    """
-    Load all .npy 128-D embedding files for a specific actor.
-    
-    :param actor_name: str name of actor folder (e.g. 'bayu_eko_moektito')
-    :param base_path: Path or str base directory containing actor embeddings
-    :param allowed_files: optional collection of allowed file names (e.g. ['1.npy', ...])
-    :param full_name: optional real MySQL full_name from database
-    :return: list of dicts [{"file": str, "path": str, "embedding": np.ndarray, "full_name": str}]
-    """
+    """Load valid FaceNet reference embeddings (.npy) for a specific actor."""
     actor_dir = Path(base_path) / actor_name
     embeddings = []
     if not actor_dir.exists() or not actor_dir.is_dir():
@@ -33,7 +24,7 @@ def load_actor_embeddings(actor_name, base_path=EMBEDDING_PATH, allowed_files=No
             continue
         try:
             emb = np.load(str(npy_file))
-            if len(emb) == 128:
+            if len(emb) == FACENET_EMBEDDING_DIM:
                 embeddings.append({
                     "file": npy_file.name,
                     "path": str(npy_file),

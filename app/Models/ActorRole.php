@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 
 class ActorRole extends Model
 {
-    protected $fillable = ['actor_id', 'movie_keywords', 'character_name'];
+    use HasUuid;
+
+    protected $fillable = ['uuid', 'actor_id', 'movie_keywords', 'character_name'];
 
     public function actor()
     {

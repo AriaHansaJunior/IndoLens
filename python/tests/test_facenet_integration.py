@@ -57,7 +57,7 @@ class TestSession4FaceNetIntegration(unittest.TestCase):
         # 3. Assert embedding properties
         self.assertIsInstance(emb, np.ndarray)
         self.assertEqual(emb.shape, (FACENET_EMBEDDING_DIM,))
-        self.assertEqual(len(emb), 128)
+        self.assertEqual(len(emb), FACENET_EMBEDDING_DIM)
         self.assertEqual(emb.dtype, np.float32)
 
         # 4. Assert L2-normalization (norm should be ~1.0)
@@ -65,9 +65,6 @@ class TestSession4FaceNetIntegration(unittest.TestCase):
         self.assertAlmostEqual(norm, 1.0, places=5)
 
     def test_multi_face_produces_separate_embeddings(self):
-        """
-        Test that multiple distinct face crops produce separate, non-identical 128-D embeddings.
-        """
         crop_a = np.full((160, 160, 3), 80, dtype=np.uint8)
         cv2.circle(crop_a, (80, 80), 40, (255, 255, 255), -1)
 
@@ -77,27 +74,16 @@ class TestSession4FaceNetIntegration(unittest.TestCase):
         emb_a = generate_embedding(crop_a)
         emb_b = generate_embedding(crop_b)
 
-        self.assertEqual(emb_a.shape, (128,))
-        self.assertEqual(emb_b.shape, (128,))
+        self.assertEqual(emb_a.shape, (FACENET_EMBEDDING_DIM,))
+        self.assertEqual(emb_b.shape, (FACENET_EMBEDDING_DIM,))
 
-        # The two distinct crops must produce different embeddings
         difference = np.linalg.norm(emb_a - emb_b)
         self.assertGreater(difference, 0.05)
 
     def test_yolo_service_detect_contract_schema(self):
-        """
-        Test that yolo_service /detect logic conforms to Session 4 contract:
-        - bbox present
-        - confidence present
-        - embedding_dim == 128
-        - embedding has 128 values
-        - facenet_status == 'success'
-        - NO actor, distance, or recognition fields
-        """
         import yolo_service
 
-        # Verify yolo_service module constants and imports
-        self.assertEqual(yolo_service.FACENET_EMBEDDING_DIM, 128)
+        self.assertEqual(yolo_service.FACENET_EMBEDDING_DIM, FACENET_EMBEDDING_DIM)
 
         # Create dummy detection entry with crop
         dummy_crop = np.random.randint(50, 200, (160, 160, 3), dtype=np.uint8)
@@ -119,8 +105,8 @@ class TestSession4FaceNetIntegration(unittest.TestCase):
 
         self.assertEqual(face_data["bbox"], [50, 50, 210, 210])
         self.assertEqual(face_data["confidence"], 0.95)
-        self.assertEqual(face_data["embedding_dim"], 128)
-        self.assertEqual(len(face_data["embedding"]), 128)
+        self.assertEqual(face_data["embedding_dim"], FACENET_EMBEDDING_DIM)
+        self.assertEqual(len(face_data["embedding"]), FACENET_EMBEDDING_DIM)
         self.assertEqual(face_data["facenet_status"], "success")
 
         # Session 4 Strict Boundary Check: NO actor identification fields

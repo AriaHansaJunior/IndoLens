@@ -30,8 +30,8 @@ class ExampleTest extends TestCase
         $response = $this->get('/camera');
 
         $response->assertStatus(200);
-        $response->assertSee('Live Camera Capture');
-        $response->assertSee('Camera Standby');
+        $response->assertSee('Live Camera Recognition');
+        $response->assertSee('Standby');
         $response->assertSee('Start Camera');
     }
 }

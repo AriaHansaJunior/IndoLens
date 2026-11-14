@@ -1,6 +1,6 @@
 /**
- * IndoLens - Camp Administration Module (Session 6)
- * Handles client-side confirmations, multiple face image preview, age calculation, and modal workflows.
+ * IndoLens - Camp Administration Module
+ * Handles client-side confirmations, face image previews, age calculation, and modal workflows.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,10 +31,10 @@ const CampManager = {
         document.querySelectorAll('.js-btn-delete').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const actorId = btn.getAttribute('data-actor-id');
+                const actorUuid = btn.getAttribute('data-actor-uuid');
                 const actorName = btn.getAttribute('data-actor-name');
 
-                deleteForm.action = `/camp/${actorId}`;
+                deleteForm.action = `/camp/${actorUuid}`;
                 if (targetNameEl) {
                     targetNameEl.textContent = actorName;
                 }
@@ -254,11 +254,11 @@ const CampManager = {
             document.querySelectorAll('.js-btn-delete-face').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    const actorId = btn.getAttribute('data-actor-id');
-                    const imageId = btn.getAttribute('data-image-id');
+                    const actorUuid = btn.getAttribute('data-actor-uuid');
+                    const imageUuid = btn.getAttribute('data-image-uuid');
                     const imageName = btn.getAttribute('data-image-name');
 
-                    deleteFaceForm.action = `/camp/${actorId}/faces/${imageId}`;
+                    deleteFaceForm.action = `/camp/${actorUuid}/faces/${imageUuid}`;
                     if (deleteTargetFaceName) {
                         deleteTargetFaceName.textContent = imageName;
                     }

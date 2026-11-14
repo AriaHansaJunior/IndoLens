@@ -66,7 +66,7 @@ try:
     from yolo.detector import load_model as yolo_load_model, predict_frame
     from facenet.embedding_generator import load_facenet_model, generate_embedding
     from recognition.embedding_matcher import load_all_embeddings, find_best_match
-    from config.config import FACE_DISTANCE_THRESHOLD
+    from config.dataset import FACENET_EMBEDDING_DIM, FACE_DISTANCE_THRESHOLD
     HAS_AI = True
     COMPUTE_DEVICE = "CUDA (GPU)" if (torch is not None and torch.cuda.is_available()) else "CPU"
 except ImportError as e:
@@ -274,7 +274,7 @@ class InferenceThread(QThread):
                     
                     emb = generate_embedding(crop_img)
                     
-                    if emb is not None and len(emb) == 128:
+                    if emb is not None and len(emb) == FACENET_EMBEDDING_DIM:
                         t_eucl = time.perf_counter()
                         rec_result = find_best_match(emb, self.all_actor_embeddings, threshold=FACE_DISTANCE_THRESHOLD)
                         t_eucl_total += (time.perf_counter() - t_eucl) * 1000

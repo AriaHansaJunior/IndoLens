@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Actor;
 use App\Models\ActorImage;
+use App\Models\ActorRole;
 use App\Models\Character;
 use App\Models\Movie;
 use Carbon\Carbon;
@@ -134,12 +135,12 @@ class CampTest extends TestCase
             'age' => 31,
         ]);
 
-        $editPage = $this->get("/camp/{$actor->id}/edit");
+        $editPage = $this->get("/camp/{$actor->uuid}/edit");
         $editPage->assertStatus(200);
         $editPage->assertSee('Edit Actor');
         $editPage->assertSee('Pevita Pearce');
 
-        $updateResponse = $this->put("/camp/{$actor->id}", [
+        $updateResponse = $this->put("/camp/{$actor->uuid}", [
             'full_name' => 'Pevita Cleo Eileen Pearce',
             'gender' => 'Female',
             'birth_place' => 'Jakarta, Indonesia',
@@ -165,7 +166,7 @@ class CampTest extends TestCase
             'gender' => 'Laki-laki',
         ]);
 
-        $facesPage = $this->get("/camp/{$actor->id}/faces");
+        $facesPage = $this->get("/camp/{$actor->uuid}/faces");
         $facesPage->assertStatus(200);
         $facesPage->assertSee('Manage Face Images');
 
@@ -174,11 +175,11 @@ class CampTest extends TestCase
         $file2 = UploadedFile::fake()->image('bayu_02.jpeg', 120, 120);
         $file3 = UploadedFile::fake()->image('bayu_03.png', 140, 140);
 
-        $uploadResponse = $this->post("/camp/{$actor->id}/faces", [
+        $uploadResponse = $this->post("/camp/{$actor->uuid}/faces", [
             'images' => [$file1, $file2, $file3],
         ]);
 
-        $uploadResponse->assertRedirect("/camp/{$actor->id}/faces");
+        $uploadResponse->assertRedirect("/camp/{$actor->uuid}/faces");
         $uploadResponse->assertSessionHas('success', 'Face images uploaded successfully.');
 
         $this->assertEquals(3, ActorImage::where('actor_id', $actor->id)->count());
@@ -187,8 +188,8 @@ class CampTest extends TestCase
         Storage::disk('public')->assertExists($firstImage->image);
 
         // Individual face image delete
-        $deleteResponse = $this->delete("/camp/{$actor->id}/faces/{$firstImage->id}");
-        $deleteResponse->assertRedirect("/camp/{$actor->id}/faces");
+        $deleteResponse = $this->delete("/camp/{$actor->uuid}/faces/{$firstImage->uuid}");
+        $deleteResponse->assertRedirect("/camp/{$actor->uuid}/faces");
         $deleteResponse->assertSessionHas('success', 'Face image deleted successfully.');
 
         $this->assertEquals(2, ActorImage::where('actor_id', $actor->id)->count());
@@ -208,14 +209,14 @@ class CampTest extends TestCase
         // Add 2 face images
         $faceFile1 = UploadedFile::fake()->image('face1.jpg');
         $faceFile2 = UploadedFile::fake()->image('face2.png');
-        $this->post("/camp/{$actor->id}/faces", ['images' => [$faceFile1, $faceFile2]]);
+        $this->post("/camp/{$actor->uuid}/faces", ['images' => [$faceFile1, $faceFile2]]);
 
         $this->assertEquals(2, ActorImage::where('actor_id', $actor->id)->count());
         $faceRecord = ActorImage::where('actor_id', $actor->id)->first();
         Storage::disk('public')->assertExists($faceRecord->image);
 
         // Delete actor
-        $deleteResponse = $this->delete("/camp/{$actor->id}");
+        $deleteResponse = $this->delete("/camp/{$actor->uuid}");
         $deleteResponse->assertRedirect('/camp');
         $deleteResponse->assertSessionHas('success', 'Actor deleted successfully.');
 
@@ -268,7 +269,7 @@ class CampTest extends TestCase
             'character_name' => 'Bayu',
         ]);
 
-        $detailRes = $this->get("/actors/{$actor->id}");
+        $detailRes = $this->get("/actors/{$actor->uuid}");
         $detailRes->assertStatus(200);
         $detailRes->assertSee('Bayu Eko Moektito');
         $detailRes->assertSee('Male'); // English gender
@@ -289,13 +290,13 @@ class CampTest extends TestCase
             'birth_place' => 'Malang',
         ]);
 
-        // Known actor lookup (Bayu -> Bayu Eko Moektito -> DB found -> correct Actor ID)
+        // Known actor lookup (Bayu -> Bayu Eko Moektito -> DB found -> correct Actor UUID)
         $knownRes = $this->get('/api/actors/lookup?name=Bayu%20Eko%20Moektito');
         $knownRes->assertStatus(200);
         $knownRes->assertJson([
             'found' => true,
             'actor' => [
-                'id' => $actor->id,
+                'uuid' => $actor->uuid,
                 'full_name' => 'Bayu Eko Moektito',
                 'gender' => 'Male',
                 'age' => 31,
@@ -382,11 +383,11 @@ class CampTest extends TestCase
 
         $file = \Illuminate\Http\UploadedFile::fake()->image('face1.jpg', 200, 200);
 
-        $response = $this->post(route('camp.faces.store', $actor->id), [
+        $response = $this->post(route('camp.faces.store', $actor), [
             'images' => [$file],
         ]);
 
-        $response->assertRedirect(route('camp.faces', $actor->id));
+        $response->assertRedirect(route('camp.faces', $actor));
         $this->assertDatabaseHas('actor_images', [
             'actor_id' => $actor->id,
         ]);
@@ -417,8 +418,8 @@ class CampTest extends TestCase
             'image' => 'actor-images/test/face.jpg',
         ]);
 
-        $response = $this->delete(route('camp.faces.destroy', [$actor->id, $image->id]));
-        $response->assertRedirect(route('camp.faces', $actor->id));
+        $response = $this->delete(route('camp.faces.destroy', [$actor, $image]));
+        $response->assertRedirect(route('camp.faces', $actor));
 
         $this->assertDatabaseMissing('actor_images', ['id' => $image->id]);
 
@@ -442,7 +443,7 @@ class CampTest extends TestCase
             'gender' => 'Laki-laki',
         ]);
 
-        $response = $this->delete(route('camp.destroy', $actor->id));
+        $response = $this->delete(route('camp.destroy', $actor));
         $response->assertRedirect(route('camp.index'));
 
         $this->assertDatabaseMissing('actors', ['id' => $actor->id]);
@@ -452,6 +453,90 @@ class CampTest extends TestCase
                 && $request['actor_id'] === $actor->id
                 && $request['full_name'] === 'Aktor Musnah';
         });
+    }
+
+    public function test_plain_integer_ids_are_rejected_and_uuid_urls_succeed(): void
+    {
+        $actor = Actor::create([
+            'full_name' => 'Joshua Suherman',
+            'gender' => 'Laki-laki',
+        ]);
+
+        $this->get("/actors/{$actor->id}")->assertNotFound();
+        $this->get("/camp/{$actor->id}/edit")->assertNotFound();
+        $this->get("/camp/{$actor->id}/faces")->assertNotFound();
+
+        $this->get("/actors/{$actor->uuid}")->assertStatus(200);
+        $this->get("/camp/{$actor->uuid}/edit")->assertStatus(200);
+        $this->get("/camp/{$actor->uuid}/faces")->assertStatus(200);
+    }
+
+    public function test_create_actor_with_profile_photo_saves_file_and_path(): void
+    {
+        $photo = UploadedFile::fake()->image('profile.jpg', 300, 300);
+
+        $response = $this->post('/camp', [
+            'full_name' => 'Tutus Thomson',
+            'gender' => 'Male',
+            'photo' => $photo,
+        ]);
+
+        $response->assertRedirect('/camp');
+        $actor = Actor::where('full_name', 'Tutus Thomson')->firstOrFail();
+
+        $this->assertNotNull($actor->photo);
+        Storage::disk('public')->assertExists($actor->photo);
+    }
+
+    public function test_manage_actor_filmography_and_recognition_roles(): void
+    {
+        $actor = Actor::create([
+            'full_name' => 'Brandon Salim',
+            'gender' => 'Laki-laki',
+        ]);
+
+        $this->get(route('camp.roles', $actor))
+            ->assertStatus(200)
+            ->assertSee('Manage Roles & Filmography');
+
+        // Create character with new movie inline
+        $charRes = $this->post(route('camp.characters.store', $actor), [
+            'new_movie_title' => 'Yowis Ben 2',
+            'new_movie_year' => 2019,
+            'new_movie_genre' => 'Comedy',
+            'character_name' => 'Nando',
+        ]);
+        $charRes->assertRedirect(route('camp.roles', $actor));
+
+        $this->assertDatabaseHas('movies', ['title' => 'Yowis Ben 2', 'release_year' => 2019]);
+        $this->assertDatabaseHas('characters', [
+            'actor_id' => $actor->id,
+            'character_name' => 'Nando',
+        ]);
+
+        // Add live recognition keyword role
+        $roleRes = $this->post(route('camp.roles.store', $actor), [
+            'movie_keywords' => 'yowis ben 2, yowisben',
+            'character_name' => 'Nando',
+        ]);
+        $roleRes->assertRedirect(route('camp.roles', $actor));
+
+        $this->assertDatabaseHas('actor_roles', [
+            'actor_id' => $actor->id,
+            'movie_keywords' => 'yowis ben 2, yowisben',
+            'character_name' => 'Nando',
+        ]);
+
+        $character = Character::where('actor_id', $actor->id)->firstOrFail();
+        $role = ActorRole::where('actor_id', $actor->id)->firstOrFail();
+
+        $this->delete(route('camp.characters.destroy', [$actor, $character]))
+            ->assertRedirect(route('camp.roles', $actor));
+        $this->assertDatabaseMissing('characters', ['id' => $character->id]);
+
+        $this->delete(route('camp.roles.destroy', [$actor, $role]))
+            ->assertRedirect(route('camp.roles', $actor));
+        $this->assertDatabaseMissing('actor_roles', ['id' => $role->id]);
     }
 
     public function test_sync_embeddings_artisan_command(): void
@@ -475,5 +560,81 @@ class CampTest extends TestCase
 
         $this->artisan('indolens:sync-embeddings')
             ->assertExitCode(0);
+    }
+
+    public function test_prevent_duplicate_movie_character_and_role_keyword(): void
+    {
+        $actor = Actor::create([
+            'full_name' => 'Bayu Eko Moektito',
+            'gender' => 'Laki-laki',
+            'age' => 33,
+            'birth_date' => '1993-11-13',
+            'birth_place' => 'Malang',
+            'biography' => 'Indonesian actor and director.',
+        ]);
+
+        // Submit filmography character twice with different casing for new movie title
+        $this->post(route('camp.characters.store', $actor), [
+            'new_movie_title' => 'Yowis Ben',
+            'new_movie_year' => 2018,
+            'character_name' => 'Bayu',
+        ])->assertRedirect(route('camp.roles', $actor));
+
+        $this->post(route('camp.characters.store', $actor), [
+            'new_movie_title' => 'yowis ben',
+            'new_movie_year' => 2018,
+            'character_name' => 'Bayu',
+        ])->assertRedirect(route('camp.roles', $actor));
+
+        $this->assertSame(1, Movie::count());
+        $this->assertSame(1, Character::where('actor_id', $actor->id)->count());
+
+        // Submit recognition keyword role twice with same normalized keywords
+        $this->post(route('camp.roles.store', $actor), [
+            'movie_keywords' => 'yowis ben',
+            'character_name' => 'Bayu',
+        ])->assertRedirect(route('camp.roles', $actor));
+
+        $this->post(route('camp.roles.store', $actor), [
+            'movie_keywords' => '  Yowis Ben  ',
+            'character_name' => 'Bayu Updated',
+        ])->assertRedirect(route('camp.roles', $actor));
+
+        $this->assertSame(1, ActorRole::where('actor_id', $actor->id)->count());
+        $this->assertDatabaseHas('actor_roles', [
+            'actor_id' => $actor->id,
+            'movie_keywords' => 'yowis ben',
+            'character_name' => 'Bayu Updated',
+        ]);
+    }
+
+    public function test_destroy_actor_cleans_up_primary_photo_even_when_outside_actor_directory(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'ok'], 200)]);
+
+        Storage::disk('public')->put('actors/custom_primary.jpg', 'primary-bytes');
+        Storage::disk('public')->put('actor-images/test-actor/01.jpg', 'face-bytes');
+
+        $actor = Actor::create([
+            'full_name' => 'Test Actor',
+            'gender' => 'Laki-laki',
+            'age' => 30,
+            'birth_date' => '1996-01-01',
+            'birth_place' => 'Surabaya',
+            'biography' => 'Biography text.',
+            'photo' => 'actors/custom_primary.jpg',
+        ]);
+
+        ActorImage::create([
+            'actor_id' => $actor->id,
+            'image' => 'actor-images/test-actor/01.jpg',
+        ]);
+
+        $this->delete(route('camp.destroy', $actor))
+            ->assertRedirect(route('camp.index'));
+
+        $this->assertDatabaseMissing('actors', ['id' => $actor->id]);
+        Storage::disk('public')->assertMissing('actors/custom_primary.jpg');
+        Storage::disk('public')->assertMissing('actor-images/test-actor/01.jpg');
     }
 }

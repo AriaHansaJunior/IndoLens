@@ -20,20 +20,23 @@ class ActorController extends Controller
      */
     public function index()
     {
-        $actors = Actor::orderBy('is_detected', 'desc')->orderBy('full_name', 'asc')->get();
+        $actors = Actor::with(['images'])
+            ->orderBy('is_detected', 'desc')
+            ->orderBy('full_name', 'asc')
+            ->get();
 
         return view('actors.index', [
             'actors' => $actors,
-            'status' => 'Known' // Passed dynamically to Blade
+            'status' => 'Known',
         ]);
     }
 
     /**
      * Display the specified actor.
      */
-    public function show(string $id)
+    public function show(Actor $actor)
     {
-        $actor  = $this->getActor($id);
+        $actor  = $this->actorService->getActorDetail($actor);
         $movies = $this->getFilmography($actor);
 
         return view('actors.show', compact('actor', 'movies'));
@@ -42,9 +45,9 @@ class ActorController extends Controller
     /**
      * Reserved method to get Actor model via Service.
      */
-    protected function getActor(string $id): Actor
+    protected function getActor(Actor|string $actor): Actor
     {
-        return $this->actorService->getActorDetail($id);
+        return $this->actorService->getActorDetail($actor);
     }
 
     /**

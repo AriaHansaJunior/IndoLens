@@ -1,53 +1,61 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ActiveActorController;
 use App\Http\Controllers\ActorController;
 use App\Http\Controllers\CameraController;
-
-Route::get('/', [ActorController::class, 'index'])->name('actors.index');
-Route::get('/actors', [ActorController::class, 'index']);
-Route::get('/actors/{id}', [ActorController::class, 'show'])->name('actors.show');
-
-// Camera Capture route (Session 1)
-Route::get('/camera', [CameraController::class, 'index'])->name('camera.index');
-
-// Real-time integration API
-use App\Http\Controllers\ActiveActorController;
-Route::post('/api/actors/active', [ActiveActorController::class, 'updateActive']);
-Route::get('/api/actors/active', [ActiveActorController::class, 'getActive']);
-
-// Proxy YOLO API requests directly via Laravel (Session 3)
+use App\Http\Controllers\CampController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\CampController;
+// Public Actor Catalog & Detail Routes
+Route::get('/', [ActorController::class, 'index'])->name('actors.index');
+Route::get('/actors', [ActorController::class, 'index']);
+Route::get('/actors/{actor}', [ActorController::class, 'show'])->name('actors.show');
 
-// Camp Administration Routes (Session 6)
-Route::get('/camp', [CampController::class, 'index'])->name('camp.index');
-Route::get('/camp/create', [CampController::class, 'create'])->name('camp.create');
-Route::post('/camp', [CampController::class, 'store'])->name('camp.store');
-Route::get('/camp/{id}/edit', [CampController::class, 'edit'])->name('camp.edit');
-Route::put('/camp/{id}', [CampController::class, 'update'])->name('camp.update');
-Route::delete('/camp/{id}', [CampController::class, 'destroy'])->name('camp.destroy');
-Route::get('/camp/{id}/faces', [CampController::class, 'faces'])->name('camp.faces');
-Route::post('/camp/{id}/faces', [CampController::class, 'storeFaces'])->name('camp.faces.store');
-Route::delete('/camp/{actorId}/faces/{imageId}', [CampController::class, 'destroyFace'])->name('camp.faces.destroy');
+// Live Camera Stream Route
+Route::get('/camera', [CameraController::class, 'index'])->name('camera.index');
 
-// Recognition-to-Database Actor Lookup API (Session 6)
+// Real-time Recognition API
+Route::post('/api/actors/active', [ActiveActorController::class, 'updateActive']);
+Route::get('/api/actors/active', [ActiveActorController::class, 'getActive']);
 Route::get('/api/actors/lookup', [CampController::class, 'lookup'])->name('api.actors.lookup');
 
+// Camp Database Administration Routes (UUID Route Key Binding)
+Route::prefix('camp')->name('camp.')->group(function () {
+    Route::get('/', [CampController::class, 'index'])->name('index');
+    Route::get('/create', [CampController::class, 'create'])->name('create');
+    Route::post('/', [CampController::class, 'store'])->name('store');
+    Route::get('/{actor}/edit', [CampController::class, 'edit'])->name('edit');
+    Route::put('/{actor}', [CampController::class, 'update'])->name('update');
+    Route::delete('/{actor}', [CampController::class, 'destroy'])->name('destroy');
+
+    Route::get('/{actor}/faces', [CampController::class, 'faces'])->name('faces');
+    Route::post('/{actor}/faces', [CampController::class, 'storeFaces'])->name('faces.store');
+    Route::delete('/{actor}/faces/{actorImage}', [CampController::class, 'destroyFace'])->name('faces.destroy');
+
+    Route::get('/{actor}/roles', [CampController::class, 'roles'])->name('roles');
+    Route::post('/{actor}/characters', [CampController::class, 'storeCharacter'])->name('characters.store');
+    Route::delete('/{actor}/characters/{character}', [CampController::class, 'destroyCharacter'])->name('characters.destroy');
+    Route::post('/{actor}/roles', [CampController::class, 'storeRole'])->name('roles.store');
+    Route::delete('/{actor}/roles/{actorRole}', [CampController::class, 'destroyRole'])->name('roles.destroy');
+});
+
+// Python YOLO + FaceNet Proxy Fallback
 Route::post('/api/yolo/detect', function (Request $request) {
+    $yoloUrl = rtrim(config('recognition.yolo_service_url', 'http://127.0.0.1:8002'), '/');
+
     try {
-        $response = Http::withBody($request->getContent(), 'image/jpeg')
-            ->post('http://127.0.0.1:8002/detect');
-            
+        $response = Http::timeout(15)
+            ->withBody($request->getContent(), 'image/jpeg')
+            ->post("{$yoloUrl}/detect");
+
         return response($response->body(), $response->status())
             ->header('Content-Type', 'application/json');
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
-            'message' => 'YOLO service is not reachable on port 8002'
+            'message' => 'YOLO service is not reachable.',
         ], 502);
     }
 });
-

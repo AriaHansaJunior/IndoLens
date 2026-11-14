@@ -2,15 +2,18 @@
 
 namespace App\Models;
 
+use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Actor extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUuid;
 
     protected $fillable = [
+        'uuid',
         'full_name',
         'birth_date',
         'birth_place',
@@ -71,16 +74,19 @@ class Actor extends Model
             if (str_starts_with($this->photo, 'http://') || str_starts_with($this->photo, 'https://')) {
                 return $this->photo;
             }
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($this->photo)) {
+            if (Storage::disk('public')->exists($this->photo)) {
                 return asset('storage/' . $this->photo);
             }
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists('actors/' . $this->photo)) {
+            if (Storage::disk('public')->exists('actors/' . $this->photo)) {
                 return asset('storage/actors/' . $this->photo);
             }
         }
 
-        $firstImage = $this->images()->first();
-        if ($firstImage && \Illuminate\Support\Facades\Storage::disk('public')->exists($firstImage->image)) {
+        $firstImage = $this->relationLoaded('images')
+            ? $this->images->first()
+            : $this->images()->first();
+
+        if ($firstImage && Storage::disk('public')->exists($firstImage->image)) {
             return asset('storage/' . $firstImage->image);
         }
 

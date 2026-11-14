@@ -23,6 +23,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
+    gap: 12px;
     flex: 1;
     min-height: 0;
 }
@@ -346,9 +347,19 @@
 }
 
 /* ------------------------------------------
-   RESPONSIVE
+   RESPONSIVE (1024, 768, 425, 375, 320)
    ------------------------------------------ */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
+    .actor-photo-wrapper {
+        width: clamp(200px, 26vw, 250px);
+    }
+
+    .actor-title {
+        font-size: 28px;
+    }
+}
+
+@media (max-width: 768px) {
     .detail-content {
         flex-direction: column;
         align-items: center;
@@ -356,8 +367,8 @@
 
     .actor-photo-wrapper {
         width: 100%;
-        max-width: 320px;
-        height: 240px;
+        max-width: 340px;
+        height: 260px;
     }
 
     .meta-grid {
@@ -366,5 +377,59 @@
 
     .detail-split-row {
         grid-template-columns: 1fr;
+    }
+
+    .filmography-list,
+    .biography-content {
+        max-height: none;
+    }
+}
+
+@media (max-width: 425px) {
+    .actor-photo-wrapper {
+        max-width: 100%;
+        height: 240px;
+    }
+
+    .actor-title {
+        font-size: 24px;
+    }
+
+    .meta-value {
+        font-size: 15.5px;
+    }
+
+    .section-title {
+        font-size: 15.5px;
+    }
+
+    .film-title,
+    .filmography-item,
+    .biography-content {
+        font-size: 14.5px;
+    }
+}
+
+@media (max-width: 375px) {
+    .meta-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .actor-title {
+        font-size: 22px;
+    }
+}
+
+@media (max-width: 320px) {
+    .actor-photo-wrapper {
+        height: 210px;
+    }
+
+    .actor-title {
+        font-size: 20px;
+    }
+
+    .detail-sub-card {
+        padding: 10px 12px;
     }
 }

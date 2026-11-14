@@ -37,7 +37,7 @@
     @endif
 
     <!-- Edit Actor Form -->
-    <form id="editActorForm" method="POST" action="{{ route('camp.update', $actor->id) }}" enctype="multipart/form-data" class="camp-form-card">
+    <form id="editActorForm" method="POST" action="{{ route('camp.update', $actor) }}" enctype="multipart/form-data" class="camp-form-card">
         @csrf
         @method('PUT')
 

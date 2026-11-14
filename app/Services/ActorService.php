@@ -10,11 +10,19 @@ use Illuminate\Support\Collection;
 class ActorService
 {
     /**
-     * Get actor detail by ID with characters and associated movie.
+     * Get actor detail by model, UUID, or ID with characters and associated movie.
      */
-    public function getActorDetail($id): Actor
+    public function getActorDetail(Actor|int|string $actor): Actor
     {
-        return Actor::with(['characters.movie'])->findOrFail($id);
+        if ($actor instanceof Actor) {
+            return $actor->loadMissing(['characters.movie']);
+        }
+
+        $query = Actor::with(['characters.movie']);
+
+        return is_numeric($actor)
+            ? $query->findOrFail($actor)
+            : $query->where('uuid', $actor)->firstOrFail();
     }
 
     /**

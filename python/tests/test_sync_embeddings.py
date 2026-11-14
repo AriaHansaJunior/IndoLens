@@ -13,6 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+from config.dataset import FACENET_EMBEDDING_DIM
 from fastapi.testclient import TestClient
 import yolo_service
 from yolo_service import app
@@ -65,7 +66,7 @@ class TestSyncEmbeddings(unittest.TestCase):
         saved_file = self.test_dir / "9991.npy"
         self.assertTrue(saved_file.exists())
         emb = np.load(str(saved_file))
-        self.assertEqual(len(emb), 128)
+        self.assertEqual(len(emb), FACENET_EMBEDDING_DIM)
 
         # Check in-memory update
         self.assertIn(self.test_actor_slug, yolo_service.ALL_ACTOR_EMBEDDINGS)
@@ -74,7 +75,7 @@ class TestSyncEmbeddings(unittest.TestCase):
     def test_delete_actor_embedding_single(self):
         # Setup pre-existing embedding file
         self.test_dir.mkdir(parents=True, exist_ok=True)
-        dummy_emb = np.random.randn(128).astype(np.float32)
+        dummy_emb = np.random.randn(FACENET_EMBEDDING_DIM).astype(np.float32)
         dummy_emb = dummy_emb / np.linalg.norm(dummy_emb)
         np.save(str(self.test_dir / "8881.npy"), dummy_emb)
         np.save(str(self.test_dir / "8882.npy"), dummy_emb)
@@ -100,7 +101,7 @@ class TestSyncEmbeddings(unittest.TestCase):
 
     def test_delete_whole_actor(self):
         self.test_dir.mkdir(parents=True, exist_ok=True)
-        dummy_emb = np.random.randn(128).astype(np.float32)
+        dummy_emb = np.random.randn(FACENET_EMBEDDING_DIM).astype(np.float32)
         np.save(str(self.test_dir / "7771.npy"), dummy_emb)
 
         self.client.post("/reload-embeddings")
@@ -121,7 +122,7 @@ class TestSyncEmbeddings(unittest.TestCase):
         # Create an orphan actor directory
         orphan_dir = BASE_DIR / "embeddings" / "orphan_test_actor"
         orphan_dir.mkdir(parents=True, exist_ok=True)
-        dummy_emb = np.random.randn(128).astype(np.float32)
+        dummy_emb = np.random.randn(FACENET_EMBEDDING_DIM).astype(np.float32)
         np.save(str(orphan_dir / "1.npy"), dummy_emb)
 
         # Call reload so it is in memory
@@ -145,7 +146,7 @@ class TestSyncEmbeddings(unittest.TestCase):
         # Setup pre-existing stale file in test_dir
         self.test_dir.mkdir(parents=True, exist_ok=True)
         stale_file = self.test_dir / "legacy_old.npy"
-        dummy_emb = np.random.randn(128).astype(np.float32)
+        dummy_emb = np.random.randn(FACENET_EMBEDDING_DIM).astype(np.float32)
         np.save(str(stale_file), dummy_emb)
         self.assertTrue(stale_file.exists())
 

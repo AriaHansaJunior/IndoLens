@@ -23,7 +23,7 @@ class CharacterSeeder extends Seeder
                 'id' => 2,
                 'actor_id' => 1,
                 'movie_id' => 2,
-                'character_name' => 'Bagus',
+                'character_name' => 'Bagas',
             ]
         ];
 

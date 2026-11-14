@@ -78,14 +78,14 @@
                             </td>
                             <td class="col-actions">
                                 <div class="action-btn-group">
-                                    <a href="{{ route('camp.edit', $actor->id) }}" class="btn-action btn-edit" title="Edit Actor Details">
+                                    <a href="{{ route('camp.edit', $actor) }}" class="btn-action btn-edit" title="Edit Actor Details">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                         </svg>
                                         <span>Edit</span>
                                     </a>
-                                    <a href="{{ route('camp.faces', $actor->id) }}" class="btn-action btn-face" title="Manage Face Reference Images">
+                                    <a href="{{ route('camp.faces', $actor) }}" class="btn-action btn-face" title="Manage Face Reference Images">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                                             <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -93,10 +93,17 @@
                                         </svg>
                                         <span>Add Face</span>
                                     </a>
+                                    <a href="{{ route('camp.roles', $actor) }}" class="btn-action btn-roles" title="Manage Films & Recognition Roles">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M2 8h20M2 16h20M6 3v18M18 3v18"/>
+                                            <rect x="2" y="3" width="20" height="18" rx="2"/>
+                                        </svg>
+                                        <span>Roles</span>
+                                    </a>
                                     <button 
                                         type="button" 
                                         class="btn-action btn-delete js-btn-delete" 
-                                        data-actor-id="{{ $actor->id }}" 
+                                        data-actor-uuid="{{ $actor->uuid }}"
                                         data-actor-name="{{ $actor->full_name }}"
                                         title="Delete Actor"
                                     >

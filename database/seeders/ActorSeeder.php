@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use App\Models\Actor;
 
@@ -18,7 +19,7 @@ class ActorSeeder extends Seeder
                 'full_name' => 'Bayu Eko Moektito',
                 'birth_date' => '1993-11-13',
                 'birth_place' => 'Malang, Jawa Timur',
-                'age' => 31,
+                'age' => Carbon::parse('1993-11-13')->age,
                 'gender' => 'Laki-laki',
                 'photo' => 'actors/bayu_skak.jpg',
                 'biography' => 'Bayu Eko Moektito, lebih dikenal sebagai Bayu Skak, adalah seorang aktor, sutradara, komedian, dan YouTuber Indonesia. Ia dikenal luas berkat perannya dalam seri film Yowis Ben dan Sekawan Limo.',

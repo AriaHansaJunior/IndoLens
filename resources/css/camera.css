@@ -26,12 +26,9 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     flex: 1;
-    min-height: 0;
-    height: 100%;
-    max-height: calc(100vh - 105px);
-    overflow: hidden;
+    min-height: calc(100vh - 110px);
 }
 
 /* --------------------------------------------------------------------------
@@ -87,32 +84,39 @@
     background-color: var(--text-muted);
 }
 
-.stream-status-pill.active .status-indicator-dot {
+.stream-status-pill.active .status-indicator-dot,
+.stream-status-pill.streaming .status-indicator-dot {
     background-color: var(--success-green);
     box-shadow: 0 0 8px rgba(0, 255, 102, 0.8);
 }
 
-.stream-status-pill.active {
+.stream-status-pill.active,
+.stream-status-pill.streaming {
     color: #FFFFFF;
     border-color: rgba(0, 255, 102, 0.4);
 }
 
-/* --------------------------------------------------------------------------
-   2. MAIN 80/20 GRID LAYOUT
-   -------------------------------------------------------------------------- */
+.stream-status-pill.error .status-indicator-dot {
+    background-color: var(--danger-red);
+    box-shadow: 0 0 8px rgba(245, 63, 63, 0.8);
+}
+
+.stream-status-pill.error {
+    color: #FFD6D6;
+    border-color: rgba(245, 63, 63, 0.45);
+}
+
+/* Main 80/20 Grid */
 .camera-grid {
     display: grid;
     grid-template-columns: minmax(0, 4.2fr) minmax(240px, 1.2fr);
     gap: 12px;
     flex: 1;
-    min-height: 0;
+    min-height: 460px;
     align-items: stretch;
-    overflow: hidden;
 }
 
-/* --------------------------------------------------------------------------
-   3. LEFT: VIEWFINDER (80%)
-   -------------------------------------------------------------------------- */
+/* Viewfinder Panel */
 .viewfinder-card {
     display: flex;
     flex-direction: column;
@@ -123,14 +127,13 @@
     padding: 10px;
     min-height: 0;
     flex: 1;
-    overflow: hidden;
 }
 
 .viewfinder-container {
     position: relative;
     width: 100%;
     flex: 1;
-    min-height: 0;
+    min-height: 400px;
     background-color: #000000;
     border-radius: 8px;
     overflow: hidden;
@@ -635,13 +638,24 @@
 }
 
 /* --------------------------------------------------------------------------
-   5. RESPONSIVE
+   5. RESPONSIVE (1024, 768, 425, 375, 320)
    -------------------------------------------------------------------------- */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
+    .camera-grid {
+        grid-template-columns: minmax(0, 2.2fr) minmax(220px, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
     .camera-page-container {
         height: auto;
-        max-height: none;
+        min-height: 0;
         overflow: visible;
+    }
+
+    .camera-page-header {
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
     .camera-grid {
@@ -656,6 +670,42 @@
     }
 
     .detected-panel {
-        max-height: 250px;
+        max-height: 280px;
+    }
+}
+
+@media (max-width: 425px) {
+    .viewfinder-container {
+        min-height: 210px;
+    }
+
+    .page-title {
+        font-size: 18px;
+    }
+
+    .camera-controls-bar,
+    .telemetry-compact-footer {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 375px) {
+    .viewfinder-container {
+        min-height: 190px;
+    }
+}
+
+@media (max-width: 320px) {
+    .viewfinder-container {
+        min-height: 170px;
+    }
+
+    .page-title {
+        font-size: 16.5px;
+    }
+
+    .viewfinder-card {
+        padding: 8px;
     }
 }
