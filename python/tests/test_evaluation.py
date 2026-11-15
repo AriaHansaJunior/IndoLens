@@ -6,7 +6,7 @@ Verifies evaluator, metrics, confusion matrix, performance, and report generator
 import os
 import sys
 import json
-import csv
+import shutil
 import unittest
 
 # Add python directory to path
@@ -83,6 +83,9 @@ class TestEvaluationModule(unittest.TestCase):
 
         self.assertEqual(json_report["metrics"]["accuracy"], metrics["accuracy"])
         self.assertEqual(json_report["metrics"]["f1_score"], metrics["f1_score"])
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
 
 if __name__ == "__main__":
     unittest.main()

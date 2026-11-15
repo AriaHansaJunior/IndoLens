@@ -637,4 +637,134 @@ class CampTest extends TestCase
         Storage::disk('public')->assertMissing('actors/custom_primary.jpg');
         Storage::disk('public')->assertMissing('actor-images/test-actor/01.jpg');
     }
+
+    public function test_incremental_mixed_extension_face_uploads_do_not_collide_and_sync_all_active_images(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:8002/sync-actor-embedding' => Http::response(['status' => 'success'], 200),
+        ]);
+
+        $actor = Actor::create([
+            'full_name' => 'Bayu Eko Moektito',
+            'gender' => 'Laki-laki',
+        ]);
+
+        $firstUpload = UploadedFile::fake()->image('bayu_a.jpg', 120, 120);
+        $this->post(route('camp.faces.store', $actor), ['images' => [$firstUpload]])
+            ->assertRedirect(route('camp.faces', $actor));
+
+        $secondUpload = UploadedFile::fake()->image('bayu_b.png', 160, 160);
+        $this->post(route('camp.faces.store', $actor), ['images' => [$secondUpload]])
+            ->assertRedirect(route('camp.faces', $actor));
+
+        $images = ActorImage::where('actor_id', $actor->id)->orderBy('id')->get();
+        $this->assertCount(2, $images);
+        $this->assertSame("actor-images/{$actor->id}-bayu-eko-moektito/bayu-eko-moektito-01.jpg", $images[0]->image);
+        $this->assertSame("actor-images/{$actor->id}-bayu-eko-moektito/bayu-eko-moektito-02.png", $images[1]->image);
+
+        Http::assertSentCount(2);
+        $requests = Http::recorded();
+        $this->assertCount(2, $requests[1][0]['images']);
+    }
+
+    public function test_multiple_actors_have_isolated_face_directories(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
+
+        $bayu = Actor::create(['full_name' => 'Bayu Eko Moektito', 'gender' => 'Laki-laki']);
+        $reza = Actor::create(['full_name' => 'Reza Rahardian', 'gender' => 'Laki-laki']);
+
+        $this->post(route('camp.faces.store', $bayu), [
+            'images' => [UploadedFile::fake()->image('b.jpg', 100, 100)],
+        ]);
+        $this->post(route('camp.faces.store', $reza), [
+            'images' => [UploadedFile::fake()->image('r.jpg', 140, 140)],
+        ]);
+
+        $bayuImg = ActorImage::where('actor_id', $bayu->id)->firstOrFail();
+        $rezaImg = ActorImage::where('actor_id', $reza->id)->firstOrFail();
+
+        $this->assertStringStartsWith("actor-images/{$bayu->id}-bayu-eko-moektito/bayu-eko-moektito-01.", $bayuImg->image);
+        $this->assertStringStartsWith("actor-images/{$reza->id}-reza-rahardian/reza-rahardian-01.", $rezaImg->image);
+        Storage::disk('public')->assertExists($bayuImg->image);
+        Storage::disk('public')->assertExists($rezaImg->image);
+    }
+
+    public function test_migrate_actor_images_command_standardizes_legacy_paths_without_collisions(): void
+    {
+        $actor = Actor::create([
+            'full_name' => 'Bayu Eko Moektito',
+            'photo' => 'actors/bayu_skak.jpg',
+        ]);
+
+        $legacyDir = "actor-images/{$actor->id}-bayu-skak";
+        $canonicalDir = "actor-images/{$actor->id}-bayu-eko-moektito";
+        Storage::disk('public')->put('actors/bayu_skak.jpg', 'profile-bytes');
+        Storage::disk('public')->put("{$legacyDir}/bayu-skak-01.jpg", 'old-face-1');
+        Storage::disk('public')->put("{$canonicalDir}/bayu-eko-moektito-01.png", 'new-face-2');
+
+        $img1 = ActorImage::create(['actor_id' => $actor->id, 'image' => "{$legacyDir}/bayu-skak-01.jpg"]);
+        $img2 = ActorImage::create(['actor_id' => $actor->id, 'image' => "{$canonicalDir}/bayu-eko-moektito-01.png"]);
+
+        $this->artisan('app:migrate-actor-images')->assertExitCode(0);
+
+        $actor->refresh();
+        $img1->refresh();
+        $img2->refresh();
+
+        $this->assertSame("{$canonicalDir}/profile-bayu-eko-moektito.jpg", $actor->photo);
+        $this->assertSame("{$canonicalDir}/bayu-eko-moektito-01.jpg", $img1->image);
+        $this->assertSame("{$canonicalDir}/bayu-eko-moektito-02.png", $img2->image);
+
+        Storage::disk('public')->assertExists($actor->photo);
+        Storage::disk('public')->assertExists($img1->image);
+        Storage::disk('public')->assertExists($img2->image);
+        Storage::disk('public')->assertMissing('actors/bayu_skak.jpg');
+        $this->assertFalse(Storage::disk('public')->exists($legacyDir));
+    }
+
+    public function test_destroy_multiple_face_images_resequences_remaining_files_and_syncs_yolo(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:8002/sync-actor-embedding' => Http::response(['status' => 'success'], 200),
+            'http://127.0.0.1:8002/delete-actor' => Http::response(['status' => 'success'], 200),
+        ]);
+
+        $actor = Actor::create([
+            'full_name' => 'Reza Rahardian',
+            'gender' => 'Laki-laki',
+        ]);
+
+        $this->post(route('camp.faces.store', $actor), [
+            'images' => [
+                UploadedFile::fake()->image('r1.jpg', 100, 100),
+                UploadedFile::fake()->image('r2.jpg', 110, 110),
+                UploadedFile::fake()->image('r3.png', 120, 120),
+                UploadedFile::fake()->image('r4.jpg', 130, 130),
+            ],
+        ])->assertRedirect(route('camp.faces', $actor));
+
+        $images = ActorImage::where('actor_id', $actor->id)->orderBy('id')->get();
+        $this->assertCount(4, $images);
+
+        // Delete #1 and #3 (partial selection)
+        $this->delete(route('camp.faces.destroy-multiple', $actor), [
+            'image_uuids' => [$images[0]->uuid, $images[2]->uuid],
+        ])->assertRedirect(route('camp.faces', $actor));
+
+        $remaining = ActorImage::where('actor_id', $actor->id)->orderBy('id')->get();
+        $this->assertCount(2, $remaining);
+        $this->assertSame("actor-images/{$actor->id}-reza-rahardian/reza-rahardian-01.jpg", $remaining[0]->image);
+        $this->assertSame("actor-images/{$actor->id}-reza-rahardian/reza-rahardian-02.jpg", $remaining[1]->image);
+        Storage::disk('public')->assertExists($remaining[0]->image);
+        Storage::disk('public')->assertExists($remaining[1]->image);
+
+        // Delete remaining images (all removed -> delete-actor YOLO cleanup)
+        $this->delete(route('camp.faces.destroy-multiple', $actor), [
+            'image_uuids' => [$remaining[0]->uuid, $remaining[1]->uuid],
+        ])->assertRedirect(route('camp.faces', $actor));
+
+        $this->assertSame(0, ActorImage::where('actor_id', $actor->id)->count());
+        Http::assertSent(fn ($req) => $req->url() === 'http://127.0.0.1:8002/delete-actor');
+    }
 }

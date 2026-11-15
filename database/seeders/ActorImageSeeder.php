@@ -13,7 +13,7 @@ class ActorImageSeeder extends Seeder
     public function run(): void
     {
         for ($i = 1; $i <= 10; $i++) {
-            $imagePath = sprintf('actor-images/1-bayu-skak/bayu-skak-%02d.jpg', $i);
+            $imagePath = sprintf('actor-images/1-bayu-eko-moektito/bayu-eko-moektito-%02d.jpg', $i);
 
             ActorImage::updateOrCreate(
                 ['id' => $i],

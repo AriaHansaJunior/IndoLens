@@ -249,31 +249,173 @@ const CampManager = {
             }
         }
 
-        // Handle Delete Face Image modal
-        if (deleteFaceModal && deleteFaceForm) {
-            document.querySelectorAll('.js-btn-delete-face').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const actorUuid = btn.getAttribute('data-actor-uuid');
-                    const imageUuid = btn.getAttribute('data-image-uuid');
-                    const imageName = btn.getAttribute('data-image-name');
+        // Handle single & multi-select face deletion
+        this.initExistingFacesMultiSelect(deleteFaceModal, deleteTargetFaceName, deleteFaceForm, btnCancelDeleteFace);
+    },
 
+    initExistingFacesMultiSelect(deleteFaceModal, deleteTargetFaceName, deleteFaceForm, btnCancelDeleteFace) {
+        const gallerySection = document.getElementById('faceGallerySection');
+        const btnToggleMulti = document.getElementById('btnToggleSelectMultiple');
+        const btnCancelMulti = document.getElementById('btnCancelMultiSelect');
+        const deleteMultipleModal = document.getElementById('deleteMultipleFacesModal');
+        const deleteMultipleTitle = document.getElementById('deleteMultipleModalTitle');
+        const deleteMultiplePrompt = document.getElementById('deleteMultiplePrompt');
+        const deleteMultipleCountTarget = document.getElementById('deleteMultipleCountTarget');
+        const deleteMultipleInputs = document.getElementById('deleteMultipleInputs');
+        const btnCancelDeleteMultiple = document.getElementById('btnCancelDeleteMultiple');
+
+        let isMultiSelectMode = false;
+        const selectedUuids = new Set();
+
+        const syncMultiSelectUI = () => {
+            if (gallerySection) {
+                gallerySection.classList.toggle('multi-select-active', isMultiSelectMode);
+            }
+
+            if (btnToggleMulti) {
+                btnToggleMulti.classList.toggle('btn-delete-all-mode', isMultiSelectMode);
+                if (!isMultiSelectMode) {
+                    btnToggleMulti.textContent = 'Select Multiple';
+                } else {
+                    btnToggleMulti.textContent = selectedUuids.size > 0
+                        ? `Delete All (${selectedUuids.size})`
+                        : 'Delete All';
+                }
+            }
+
+            if (btnCancelMulti) {
+                btnCancelMulti.style.display = isMultiSelectMode ? 'inline-flex' : 'none';
+            }
+
+            document.querySelectorAll('.face-gallery-item').forEach(card => {
+                const btn = card.querySelector('.js-btn-delete-face');
+                if (!btn) return;
+                const uuid = btn.getAttribute('data-image-uuid');
+                const labelEl = btn.querySelector('.js-face-btn-label');
+
+                if (!isMultiSelectMode) {
+                    card.classList.remove('is-selected');
+                    if (labelEl) labelEl.textContent = 'Delete';
+                    btn.title = 'Delete Face Image';
+                } else {
+                    const isSelected = selectedUuids.has(uuid);
+                    card.classList.toggle('is-selected', isSelected);
+                    if (labelEl) labelEl.textContent = isSelected ? 'Selected' : 'Select';
+                    btn.title = isSelected ? 'Selected for deletion' : 'Select Face Image';
+                }
+            });
+        };
+
+        const toggleSelection = (uuid) => {
+            if (!uuid) return;
+            if (selectedUuids.has(uuid)) {
+                selectedUuids.delete(uuid);
+            } else {
+                selectedUuids.add(uuid);
+            }
+            syncMultiSelectUI();
+        };
+
+        document.querySelectorAll('.face-gallery-item').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (!isMultiSelectMode) return;
+                if (e.target.closest('.js-btn-delete-face')) return;
+                const btn = card.querySelector('.js-btn-delete-face');
+                if (btn) toggleSelection(btn.getAttribute('data-image-uuid'));
+            });
+        });
+
+        document.querySelectorAll('.js-btn-delete-face').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const imageUuid = btn.getAttribute('data-image-uuid');
+                if (isMultiSelectMode) {
+                    toggleSelection(imageUuid);
+                    return;
+                }
+
+                if (deleteFaceModal && deleteFaceForm) {
+                    const actorUuid = btn.getAttribute('data-actor-uuid');
+                    const imageName = btn.getAttribute('data-image-name');
                     deleteFaceForm.action = `/camp/${actorUuid}/faces/${imageUuid}`;
                     if (deleteTargetFaceName) {
                         deleteTargetFaceName.textContent = imageName;
                     }
                     deleteFaceModal.style.display = 'flex';
-                });
+                }
             });
+        });
 
-            if (btnCancelDeleteFace) {
-                btnCancelDeleteFace.addEventListener('click', () => {
-                    deleteFaceModal.style.display = 'none';
-                });
-            }
-
+        if (btnCancelDeleteFace && deleteFaceModal) {
+            btnCancelDeleteFace.addEventListener('click', () => {
+                deleteFaceModal.style.display = 'none';
+            });
             deleteFaceModal.addEventListener('click', (e) => {
                 if (e.target === deleteFaceModal) deleteFaceModal.style.display = 'none';
+            });
+        }
+
+        if (btnToggleMulti) {
+            btnToggleMulti.addEventListener('click', () => {
+                if (!isMultiSelectMode) {
+                    isMultiSelectMode = true;
+                    selectedUuids.clear();
+                    syncMultiSelectUI();
+                    return;
+                }
+
+                const allUuids = Array.from(document.querySelectorAll('.js-btn-delete-face'))
+                    .map(b => b.getAttribute('data-image-uuid'))
+                    .filter(Boolean);
+                const targets = selectedUuids.size > 0 ? Array.from(selectedUuids) : allUuids;
+                if (targets.length === 0 || !deleteMultipleModal || !deleteMultipleInputs) return;
+
+                deleteMultipleInputs.innerHTML = '';
+                targets.forEach(uuid => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'image_uuids[]';
+                    input.value = uuid;
+                    deleteMultipleInputs.appendChild(input);
+                });
+
+                const deletingSelected = selectedUuids.size > 0;
+                if (deleteMultipleTitle) {
+                    deleteMultipleTitle.textContent = deletingSelected
+                        ? 'Delete Selected Face Images'
+                        : 'Delete All Face Images';
+                }
+                if (deleteMultiplePrompt) {
+                    deleteMultiplePrompt.textContent = deletingSelected
+                        ? `Are you sure you want to delete ${targets.length} selected face ${targets.length === 1 ? 'image' : 'images'}?`
+                        : 'Are you sure you want to delete ALL face images for this actor?';
+                }
+                if (deleteMultipleCountTarget) {
+                    deleteMultipleCountTarget.textContent = deletingSelected
+                        ? `${targets.length} of ${allUuids.length} images selected`
+                        : `${targets.length} face ${targets.length === 1 ? 'image' : 'images'} will be deleted`;
+                }
+
+                deleteMultipleModal.style.display = 'flex';
+            });
+        }
+
+        if (btnCancelMulti) {
+            btnCancelMulti.addEventListener('click', () => {
+                isMultiSelectMode = false;
+                selectedUuids.clear();
+                syncMultiSelectUI();
+            });
+        }
+
+        if (btnCancelDeleteMultiple && deleteMultipleModal) {
+            btnCancelDeleteMultiple.addEventListener('click', () => {
+                deleteMultipleModal.style.display = 'none';
+            });
+            deleteMultipleModal.addEventListener('click', (e) => {
+                if (e.target === deleteMultipleModal) deleteMultipleModal.style.display = 'none';
             });
         }
     },

@@ -107,7 +107,7 @@ STAGE05_ROC_CURVE_CSV = STAGE05_DIR / "roc_curve_data.csv"
 # ---------------------------------------------------------------------------
 # 3. Parameter pemrosesan & Augmentasi Training
 # ---------------------------------------------------------------------------
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".avif", ".bmp"}
 DEFAULT_CHECKPOINT_EVERY = 10         # simpan manifest setiap N gambar
 NEAR_DUPLICATE_HAMMING = 5            # analisis saja: jarak Hamming dHash 64-bit <= nilai ini dilaporkan
 SERVICE_URL = os.environ.get("INDOLENS_SERVICE_URL", "http://127.0.0.1:8002")

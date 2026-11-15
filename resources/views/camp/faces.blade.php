@@ -95,10 +95,16 @@
     </section>
 
     <!-- Existing Face Images Gallery Card -->
-    <section class="camp-form-card gallery-section">
+    <section class="camp-form-card gallery-section" id="faceGallerySection">
         <div class="gallery-header">
             <h2 class="card-section-title">Existing Face Images</h2>
-            <span class="gallery-badge">{{ $actor->images->count() }} Images</span>
+            <div class="gallery-header-actions">
+                @if($actor->images->count() > 0)
+                    <button type="button" class="btn-select-multiple" id="btnToggleSelectMultiple" data-total-images="{{ $actor->images->count() }}">Select Multiple</button>
+                    <button type="button" class="btn-cancel-multi" id="btnCancelMultiSelect" style="display: none;">Cancel</button>
+                @endif
+                <span class="gallery-badge">{{ $actor->images->count() }} Images</span>
+            </div>
         </div>
 
         @if($actor->images->count() > 0)
@@ -118,13 +124,16 @@
                                 data-image-name="{{ $img->image }}"
                                 title="Delete Face Image"
                             >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <svg class="icon-trash" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <polyline points="3 6 5 6 21 6"/>
                                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                     <line x1="10" y1="11" x2="10" y2="17"/>
                                     <line x1="14" y1="11" x2="14" y2="17"/>
                                 </svg>
-                                <span>Delete</span>
+                                <svg class="icon-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display: none;">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                <span class="js-face-btn-label">Delete</span>
                             </button>
                         </div>
                     </div>
@@ -223,6 +232,38 @@
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn-modal btn-danger" id="btnConfirmDeleteFace">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Multiple Faces Confirmation Modal -->
+<div class="camp-modal-backdrop" id="deleteMultipleFacesModal" style="display: none;">
+    <div class="camp-modal-dialog" role="dialog" aria-modal="true">
+        <div class="modal-header">
+            <div class="modal-icon warning-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <h3 class="modal-title" id="deleteMultipleModalTitle">Delete Selected Face Images</h3>
+        </div>
+
+        <div class="modal-body">
+            <p class="modal-prompt" id="deleteMultiplePrompt">Are you sure you want to delete these face images?</p>
+            <p class="modal-actor-target" id="deleteMultipleCountTarget"></p>
+            <p class="modal-warning">This action cannot be undone.</p>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" class="btn-modal btn-cancel" id="btnCancelDeleteMultiple">Cancel</button>
+            <form id="deleteMultipleFacesForm" method="POST" action="{{ route('camp.faces.destroy-multiple', $actor) }}">
+                @csrf
+                @method('DELETE')
+                <div id="deleteMultipleInputs"></div>
+                <button type="submit" class="btn-modal btn-danger" id="btnConfirmDeleteMultiple">Delete</button>
             </form>
         </div>
     </div>

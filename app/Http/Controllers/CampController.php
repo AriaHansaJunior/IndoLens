@@ -56,7 +56,9 @@ class CampController extends Controller
             if ($request->hasFile('photo')) {
                 $file = $request->file('photo');
                 $dirName = $this->actorDirectory($actor);
-                $photoFilename = 'profile_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $slug = Str::slug($actor->full_name);
+                $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+                $photoFilename = "profile-{$slug}.{$ext}";
                 $file->storeAs($dirName, $photoFilename, 'public');
 
                 $actor->update(['photo' => $dirName . '/' . $photoFilename]);
@@ -98,14 +100,15 @@ class CampController extends Controller
 
             if ($request->hasFile('photo')) {
                 $file = $request->file('photo');
-                $photoFilename = 'profile_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->storeAs($newDirName, $photoFilename, 'public');
+                $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+                $photoFilename = "profile-{$newSlug}-" . uniqid() . ".{$ext}";
 
                 $currentPhoto = $data['photo'] ?? $actor->photo;
                 if ($currentPhoto && Storage::disk('public')->exists($currentPhoto)) {
                     Storage::disk('public')->delete($currentPhoto);
                 }
 
+                $file->storeAs($newDirName, $photoFilename, 'public');
                 $data['photo'] = $newDirName . '/' . $photoFilename;
             }
 
@@ -173,49 +176,65 @@ class CampController extends Controller
             'images.*.max' => 'Each face image must not exceed 10 MB.',
         ]);
 
-        $newItems = [];
-        DB::transaction(function () use ($request, $actor, &$newItems) {
+        $uploadedCount = 0;
+        DB::transaction(function () use ($request, $actor, &$uploadedCount) {
             $files = $request->file('images', []);
             $slug = Str::slug($actor->full_name);
             $dirName = $this->actorDirectory($actor);
+            $disk = Storage::disk('public');
+
+            if (!$disk->exists($dirName)) {
+                $disk->makeDirectory($dirName);
+            }
 
             $existingHashes = [];
+            $existingNumbers = [];
             foreach ($actor->images as $img) {
-                $path = storage_path('app/public/' . $img->image);
-                if (file_exists($path)) {
-                    $existingHashes[md5_file($path)] = true;
+                if ($img->image && $disk->exists($img->image)) {
+                    $existingHashes[md5_file($disk->path($img->image))] = true;
+                }
+                if ($img->image && preg_match('/-(\d+)\.[a-z0-9]+$/i', $img->image, $matches)) {
+                    $existingNumbers[(int) $matches[1]] = true;
                 }
             }
 
-            $index = 1;
+            foreach ($disk->files($dirName) as $diskFile) {
+                if (preg_match('/-(\d+)\.[a-z0-9]+$/i', $diskFile, $matches)) {
+                    $existingNumbers[(int) $matches[1]] = true;
+                }
+            }
+
+            $index = empty($existingNumbers) ? 1 : (max(array_keys($existingNumbers)) + 1);
             foreach ($files as $file) {
                 $hash = md5_file($file->path());
                 if (isset($existingHashes[$hash])) {
                     continue;
                 }
 
-                do {
-                    $filename = sprintf('%s-%02d.%s', $slug, $index, $file->getClientOriginalExtension());
+                while (isset($existingNumbers[$index])) {
                     $index++;
-                } while (Storage::disk('public')->exists($dirName . '/' . $filename));
+                }
+
+                $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+                $filename = sprintf('%s-%02d.%s', $slug, $index, $ext);
+                $existingNumbers[$index] = true;
+                $index++;
 
                 $file->storeAs($dirName, $filename, 'public');
 
-                $record = ActorImage::create([
+                ActorImage::create([
                     'actor_id' => $actor->id,
                     'image' => $dirName . '/' . $filename,
                 ]);
 
-                $newItems[] = [
-                    'image_id' => $record->id,
-                    'image_path' => storage_path('app/public/' . $dirName . '/' . $filename),
-                ];
-
+                $uploadedCount++;
                 $existingHashes[$hash] = true;
             }
         });
 
-        $this->syncActorEmbeddingsWithYoloService($actor, $newItems);
+        if ($uploadedCount > 0) {
+            $this->syncActorEmbeddingsWithYoloService($actor, $this->buildActorEmbeddingPayload($actor));
+        }
 
         return redirect()->route('camp.faces', $actor)->with('success', 'Face images uploaded successfully.');
     }
@@ -271,6 +290,89 @@ class CampController extends Controller
         $this->deleteActorEmbeddingFromYoloService($actor, $targetImageId);
 
         return redirect()->route('camp.faces', $actor)->with('success', 'Face image deleted successfully.');
+    }
+
+    public function destroyMultipleFaces(Request $request, Actor $actor)
+    {
+        $validated = $request->validate([
+            'image_uuids' => ['required', 'array', 'min:1'],
+            'image_uuids.*' => ['required', 'string'],
+        ], [
+            'image_uuids.required' => 'Please select at least one face image to delete.',
+        ]);
+
+        $targetImages = ActorImage::where('actor_id', $actor->id)
+            ->whereIn('uuid', $validated['image_uuids'])
+            ->get();
+
+        abort_if($targetImages->isEmpty(), 404);
+
+        $deletedCount = $targetImages->count();
+
+        DB::transaction(function () use ($actor, $targetImages) {
+            $disk = Storage::disk('public');
+
+            foreach ($targetImages as $img) {
+                $filename = $img->image;
+                $img->delete();
+
+                if ($filename && $disk->exists($filename)) {
+                    $disk->delete($filename);
+                } elseif ($filename && $disk->exists('actors/faces/' . $filename)) {
+                    $disk->delete('actors/faces/' . $filename);
+                }
+            }
+
+            $this->resequenceActorFaceFiles($actor);
+        });
+
+        $remainingPayload = $this->buildActorEmbeddingPayload($actor);
+        if (empty($remainingPayload)) {
+            $this->deleteActorFromYoloService($actor->id, $actor->full_name);
+        } else {
+            $this->syncActorEmbeddingsWithYoloService($actor, $remainingPayload);
+        }
+
+        $label = $deletedCount === 1 ? 'face image' : 'face images';
+        return redirect()->route('camp.faces', $actor)->with('success', "{$deletedCount} {$label} deleted successfully.");
+    }
+
+    protected function resequenceActorFaceFiles(Actor $actor): void
+    {
+        $disk = Storage::disk('public');
+        $slug = Str::slug($actor->full_name);
+        $dirName = $this->actorDirectory($actor);
+        $remaining = ActorImage::where('actor_id', $actor->id)->orderBy('id')->get();
+
+        if ($remaining->isEmpty()) {
+            return;
+        }
+
+        $staged = [];
+        foreach ($remaining as $index => $img) {
+            $ext = strtolower(pathinfo((string) $img->image, PATHINFO_EXTENSION) ?: 'jpg');
+            $finalPath = sprintf('%s/%s-%02d.%s', $dirName, $slug, $index + 1, $ext);
+
+            if ($img->image === $finalPath || !$img->image || !$disk->exists($img->image)) {
+                continue;
+            }
+
+            $tmpPath = "{$dirName}/__tmp_reseq_{$img->id}.{$ext}";
+            $disk->move($img->image, $tmpPath);
+            $staged[] = [
+                'record' => $img,
+                'tmpPath' => $tmpPath,
+                'finalPath' => $finalPath,
+            ];
+        }
+
+        foreach ($staged as $item) {
+            if ($disk->exists($item['finalPath'])) {
+                $disk->delete($item['finalPath']);
+            }
+            $disk->move($item['tmpPath'], $item['finalPath']);
+            $item['record']->update(['image' => $item['finalPath']]);
+        }
     }
 
     public function roles(Actor $actor)
@@ -431,13 +533,13 @@ class CampController extends Controller
 
     protected function buildActorEmbeddingPayload(Actor $actor): array
     {
+        $disk = Storage::disk('public');
         $payload = [];
-        foreach ($actor->images()->get() as $img) {
-            $path = storage_path('app/public/' . $img->image);
-            if (file_exists($path)) {
+        foreach ($actor->images()->orderBy('id')->get() as $img) {
+            if ($img->image && $disk->exists($img->image)) {
                 $payload[] = [
                     'image_id' => $img->id,
-                    'image_path' => $path,
+                    'image_path' => $disk->path($img->image),
                 ];
             }
         }

@@ -32,6 +32,7 @@ Route::prefix('camp')->name('camp.')->group(function () {
 
     Route::get('/{actor}/faces', [CampController::class, 'faces'])->name('faces');
     Route::post('/{actor}/faces', [CampController::class, 'storeFaces'])->name('faces.store');
+    Route::delete('/{actor}/faces', [CampController::class, 'destroyMultipleFaces'])->name('faces.destroy-multiple');
     Route::delete('/{actor}/faces/{actorImage}', [CampController::class, 'destroyFace'])->name('faces.destroy');
 
     Route::get('/{actor}/roles', [CampController::class, 'roles'])->name('roles');

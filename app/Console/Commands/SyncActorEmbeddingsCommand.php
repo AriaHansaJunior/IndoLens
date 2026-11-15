@@ -98,13 +98,13 @@ class SyncActorEmbeddingsCommand extends Command
                 continue;
             }
 
+            $disk = Storage::disk('public');
             $imagePayload = [];
             foreach ($images as $img) {
-                $path = storage_path('app/public/' . $img->image);
-                if (file_exists($path)) {
+                if ($img->image && $disk->exists($img->image)) {
                     $imagePayload[] = [
                         'image_id' => $img->id,
-                        'image_path' => $path,
+                        'image_path' => $disk->path($img->image),
                     ];
                 }
             }

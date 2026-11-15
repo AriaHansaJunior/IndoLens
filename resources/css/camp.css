@@ -807,7 +807,61 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
     margin-bottom: 20px;
+}
+
+.gallery-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-select-multiple {
+    background: var(--primary);
+    color: #FFFFFF;
+    border: 1px solid var(--primary);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-select-multiple:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.btn-select-multiple.btn-delete-all-mode {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #FFFFFF;
+}
+
+.btn-select-multiple.btn-delete-all-mode:hover {
+    background: var(--danger-hover);
+    border-color: var(--danger-hover);
+}
+
+.btn-cancel-multi {
+    background: #1A2130;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-cancel-multi:hover {
+    color: var(--text-white);
+    background: #242D40;
 }
 
 .gallery-badge {
@@ -840,6 +894,15 @@
     border-color: #3D4860;
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.multi-select-active .face-gallery-item {
+    cursor: pointer;
+}
+
+.face-gallery-item.is-selected {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.4);
 }
 
 .face-img-wrapper {
@@ -892,6 +955,31 @@
 .btn-delete-face:hover {
     background: var(--danger);
     color: #FFFFFF;
+}
+
+.multi-select-active .btn-delete-face {
+    background: rgba(22, 93, 255, 0.14);
+    color: #4D8BFF;
+    border-color: rgba(22, 93, 255, 0.35);
+}
+
+.multi-select-active .btn-delete-face:hover {
+    background: rgba(22, 93, 255, 0.25);
+    color: #FFFFFF;
+}
+
+.multi-select-active .face-gallery-item.is-selected .btn-delete-face {
+    background: var(--primary);
+    color: #FFFFFF;
+    border-color: var(--primary);
+}
+
+.multi-select-active .btn-delete-face .icon-trash {
+    display: none;
+}
+
+.multi-select-active .btn-delete-face .icon-check {
+    display: block !important;
 }
 
 .faces-empty-state {

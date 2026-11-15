@@ -21,7 +21,7 @@ class ActorSeeder extends Seeder
                 'birth_place' => 'Malang, Jawa Timur',
                 'age' => Carbon::parse('1993-11-13')->age,
                 'gender' => 'Laki-laki',
-                'photo' => 'actors/bayu_skak.jpg',
+                'photo' => 'actor-images/1-bayu-eko-moektito/profile-bayu-eko-moektito.jpg',
                 'biography' => 'Bayu Eko Moektito, lebih dikenal sebagai Bayu Skak, adalah seorang aktor, sutradara, komedian, dan YouTuber Indonesia. Ia dikenal luas berkat perannya dalam seri film Yowis Ben dan Sekawan Limo.',
                 'instagram' => 'https://www.instagram.com/moektito',
                 'wikipedia' => 'https://id.wikipedia.org/wiki/Bayu_Skak',

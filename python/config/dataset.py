@@ -6,7 +6,7 @@ DATASET_PATH = BASE_DIR / "datasets" / "actors"
 EMBEDDING_PATH = BASE_DIR / "embeddings"
 
 # Dataset constraints & options
-SUPPORTED_EXTENSION = ["jpg", "jpeg", "png"]
+SUPPORTED_EXTENSION = ["jpg", "jpeg", "png", "webp", "avif"]
 IMAGE_SIZE = (160, 160)
 MINIMUM_IMAGES = 1
 
