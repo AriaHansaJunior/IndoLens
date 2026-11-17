@@ -5,9 +5,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { ensureCertsForCurrentLan, getLanIps, getPrimaryLanIp } from './generate-certs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+let lanIp = getPrimaryLanIp();
+try {
+    lanIp = ensureCertsForCurrentLan();
+} catch (err) {
+    console.warn(`[Gateway] Could not auto-update SSL certificate for LAN IP (${lanIp}): ${err.message}`);
+}
 
 const certDir = path.join(__dirname, 'certs');
 const serverKey = fs.readFileSync(path.join(certDir, 'server.key'));
@@ -363,7 +371,7 @@ httpServer.on('clientError', (err, socket) => {
 
 // Dedicated listener for port 8080 (plain HTTP helper)
 httpServer.listen(HTTP_HELP_PORT, '0.0.0.0', () => {
-    console.log(`[HTTP Helper] Listening on http://0.0.0.0:${HTTP_HELP_PORT} (CA download: http://192.168.20.212:${HTTP_HELP_PORT}/ca.crt)`);
+    console.log(`[HTTP Helper] Listening on http://0.0.0.0:${HTTP_HELP_PORT} (CA download: http://${lanIp}:${HTTP_HELP_PORT}/ca.crt)`);
 });
 
 // 3. Port 8000 Multiplexer (Distributes incoming TCP connections between HTTPS and HTTP)
@@ -389,8 +397,12 @@ const mainServer = net.createServer((socket) => {
 });
 
 mainServer.listen(PORT, '0.0.0.0', () => {
+    const lanIps = getLanIps();
     console.log(`[Gateway] Port ${PORT} active (HTTPS + HTTP auto-redirect)`);
-    console.log(`[Gateway] Phone LAN HTTPS : https://192.168.20.212:${PORT}/camera`);
+    console.log(`[Gateway] Phone LAN HTTPS : https://${lanIp}:${PORT}/camera`);
+    for (const altIp of lanIps.slice(1)) {
+        console.log(`[Gateway] Alt LAN HTTPS   : https://${altIp}:${PORT}/camera`);
+    }
     console.log(`[Gateway] Laptop HTTPS    : https://localhost:${PORT}/camera`);
     console.log(`[Gateway] Laptop 127.0.0.1: https://127.0.0.1:${PORT}/camera`);
 

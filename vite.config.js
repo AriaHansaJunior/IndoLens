@@ -2,30 +2,10 @@ import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
 import tailwindcss from '@tailwindcss/vite';
-import os from 'node:os';
 import fs from 'node:fs';
+import { getPrimaryLanIp } from './generate-certs.js';
 
-/**
- * Automatically determine laptop LAN IPv4 address for local network device access (e.g. smartphone)
- */
-function getLanIp() {
-    if (process.env.VITE_DEV_SERVER_HOST) {
-        return process.env.VITE_DEV_SERVER_HOST;
-    }
-    const interfaces = os.networkInterfaces();
-    for (const devName of Object.keys(interfaces)) {
-        const iface = interfaces[devName];
-        if (!iface) continue;
-        for (const alias of iface) {
-            if (alias.family === 'IPv4' && !alias.internal) {
-                return alias.address;
-            }
-        }
-    }
-    return '192.168.20.212';
-}
-
-const lanIp = getLanIp();
+const lanIp = getPrimaryLanIp();
 
 export default defineConfig({
     plugins: [

@@ -16,62 +16,12 @@ from yolo.video_processor import open_video, read_frame, release_video
 from yolo.frame_extractor import get_total_frame, get_fps, get_resolution
 from yolo.face_cropper import crop_face, validate_crop
 
-# Global cached model instance
+# Python - YOLO
 _YOLO_MODEL = None
 
 
-def load_model(model_path=None):
-    """
-    Load YOLO model instance using official Ultralytics API.
-    
-    :param model_path: Path to .pt file or official model string
-    :return: YOLO model instance
-    """
-    global _YOLO_MODEL
-
-    target_path = model_path if model_path else YOLO_MODEL_PATH
-
-    # If target path does not exist, use fallback model or target path string
-    if isinstance(target_path, Path) and not target_path.exists():
-        target_path = str(YOLO_FALLBACK_MODEL)
-    else:
-        target_path = str(target_path)
-
-    _YOLO_MODEL = YOLO(target_path)
-    return _YOLO_MODEL
-
-
-def detect_faces(frame):
-    """
-    Detect faces in a given frame using Ultralytics YOLO model.
-    Reads detection thresholds and parameters directly from config.py.
-    
-    :param frame: numpy.ndarray input image/frame
-    :return: Ultralytics Results list
-    """
-    global _YOLO_MODEL
-    if _YOLO_MODEL is None:
-        _YOLO_MODEL = load_model()
-
-    results = _YOLO_MODEL(
-        frame,
-        conf=YOLO_CONFIDENCE,
-        iou=YOLO_IOU,
-        imgsz=YOLO_IMAGE_SIZE,
-        device=YOLO_DEVICE,
-        verbose=False
-    )
-    return results
-
-
 def predict_frame(frame):
-    """
-    Predict face bounding boxes and confidence scores for a single frame.
-    Also crops face regions into in-memory numpy.ndarray objects.
-    
-    :param frame: numpy.ndarray frame
-    :return: list of dicts [{"bbox": [x1, y1, x2, y2], "confidence": float, "crop": numpy.ndarray}]
-    """
+    """Predict face bounding boxes and crops for a single frame."""
     if frame is None:
         return []
 
@@ -79,7 +29,7 @@ def predict_frame(frame):
     detections = []
 
     for result in results:
-        boxes = result.boxes
+        boxes = getattr(result, "boxes", None)
         if boxes is None:
             continue
 
@@ -102,15 +52,8 @@ def predict_frame(frame):
 
 
 def predict_video(video_path):
-    """
-    Process input video frame-by-frame for facial detection.
-    Extracts bounding boxes and crops faces into memory as numpy.ndarray.
-    
-    :param video_path: Path to video file
-    :return: dict structured detection result matching Session 3 JSON schema
-    """
+    """Process input video frame-by-frame for facial detection."""
     start_time = time.time()
-    # Load model ONCE before video processing loop
     load_model()
 
     cap = open_video(video_path)
@@ -168,12 +111,7 @@ def predict_video(video_path):
 
 
 def export_detection(data):
-    """
-    Format detection output data into Session 3 JSON schema dictionary.
-    
-    :param data: dict detection payload
-    :return: dict formatted response
-    """
+    """Format detection output data into structured JSON dictionary."""
     return {
         "status": "success",
         "command": "detect-video",

@@ -1,8 +1,7 @@
 """
-IndoLens - Python YOLO Face Detection & Recognition Micro-Service (Session 5)
-Provides high-performance, low-latency face detection, 128-D embedding, and recognition endpoint.
-Pre-loads YOLOv8, FaceNet InceptionResnetV1, and actor reference embeddings into memory on startup.
-Computes Euclidean distance against reference embeddings using threshold 0.65 (Known vs Unknown).
+IndoLens - Python YOLO Face Detection & Recognition Micro-Service
+Pre-loads YOLOv8, FaceNet InceptionResnetV1, and actor reference embeddings into memory.
+Computes Euclidean distance against reference embeddings using threshold from config.dataset.
 """
 
 import sys
@@ -70,7 +69,7 @@ async def lifespan(app: FastAPI):
 # Initialize FastAPI application with lifespan
 app = FastAPI(
     title="IndoLens YOLO Face Detection & Recognition Service",
-    description="Session 5 Real-time face detection, 128-D embedding, and recognition bridge",
+    description="Real-time face detection, 512-D FaceNet embedding, and recognition bridge",
     version="1.2.0",
     lifespan=lifespan
 )
@@ -427,12 +426,7 @@ def reload_embeddings_endpoint():
 
 @app.post("/detect")
 async def detect_faces_endpoint(request: Request):
-    """
-    Real-time face detection, FaceNet 128-D embedding, and Recognition endpoint (Session 5).
-    Accepts raw binary image body (JPEG/PNG), runs Ultralytics YOLOv8 face detection,
-    crops each detected face bounding box, extracts 128-D FaceNet embedding,
-    and computes Euclidean Distance against reference embeddings with threshold 0.65.
-    """
+    """Real-time face detection, FaceNet embedding extraction, and Euclidean matching."""
     start_time = time.perf_counter()
 
     # Read raw body bytes directly (no python-multipart dependency)
@@ -503,7 +497,7 @@ async def detect_faces_endpoint(request: Request):
                     face_data["embedding"] = [round(float(v), 6) for v in emb]
                     face_data["facenet_status"] = "success"
 
-                    # Session 5: Recognition via Euclidean Distance & Threshold 0.65
+                    # Euclidean matching
                     t_rec = time.perf_counter()
                     rec_res = find_best_match(emb, ALL_ACTOR_EMBEDDINGS, threshold=FACE_DISTANCE_THRESHOLD)
                     t_recognition_total += (time.perf_counter() - t_rec) * 1000

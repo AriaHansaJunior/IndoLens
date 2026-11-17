@@ -11,13 +11,14 @@ ST = Indonesia
 L = Jakarta
 O = IndoLens
 OU = Development
-CN = 192.168.20.212
+CN = 192.168.137.1
 
 [req_ext]
 subjectAltName = @alt_names
 
 [alt_names]
-IP.1 = 192.168.20.212
-IP.2 = 127.0.0.1
+IP.1 = 192.168.137.1
+IP.2 = 10.12.182.228
+IP.3 = 127.0.0.1
 DNS.1 = localhost
 DNS.2 = indolens.test

@@ -3,12 +3,10 @@ opencv-python
 numpy
 torch
 torchvision
-facenet-pytorch
 scipy
 pillow
 tqdm
 pandas
-PyQt5
-dxcam
-pywin32
-mss
+fastapi
+uvicorn
+pymysql
