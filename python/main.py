@@ -13,7 +13,8 @@ from utils.exception import handle_exception, handle_model_error, handle_video_e
 from utils.validator import validate_video, validate_dataset, validate_output
 from utils.dataset_loader import load_dataset
 from config.dataset import EMBEDDING_PATH
-from facenet.embedding_generator import generate_embedding, save_embedding
+from facenet.embedding_generator import generate_embedding, save_embedding, ekstrak_vektor_embedding_wajah
+from facenet.arsitektur_facenet_manual import hitung_triplet_margin_loss
 from recognition.recognition_engine import recognize_video
 from recognition.overlay_renderer import render_video
 
@@ -33,13 +34,14 @@ def crop_face(frame, bbox):
 
 # feature extraction method
 def extract_features(face_img):
-    """Extract visual features from face image."""
-    pass
+    """Mengekstrak vektor fitur embedding 512-D dari potongan citra wajah menggunakan JaringanFaceNetMandiri."""
+    return ekstrak_vektor_embedding_wajah(face_img)
 
 # triplet loss
 def compute_triplet_loss(anchor, positive, negative):
-    """Compute triplet loss for embedding optimization."""
-    pass
+    """Menghitung nilai Triplet Margin Loss dari pasangan vektor Anchor, Positive, dan Negative."""
+    nilai_loss, _ = hitung_triplet_margin_loss(anchor, positive, negative)
+    return nilai_loss
 
 # actor recognition
 def recognize_actor(embedding, known_embeddings_db):

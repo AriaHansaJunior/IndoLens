@@ -651,32 +651,49 @@
         height: auto;
         min-height: 0;
         overflow: visible;
+        gap: 8px;
     }
 
     .camera-page-header {
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
+        padding-bottom: 6px;
     }
 
     .camera-grid {
         grid-template-columns: 1fr;
         height: auto;
         overflow: visible;
+        gap: 10px;
+    }
+
+    .viewfinder-card {
+        padding: 4px;
+        border-radius: 10px;
+        margin-left: -6px;
+        margin-right: -6px;
+        width: calc(100% + 12px);
     }
 
     .viewfinder-container {
-        aspect-ratio: 16 / 9;
-        min-height: 240px;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        min-height: 54vh;
     }
 
     .detected-panel {
-        max-height: 280px;
+        max-height: 300px;
     }
 }
 
 @media (max-width: 425px) {
+    .viewfinder-card {
+        padding: 4px;
+    }
+
     .viewfinder-container {
-        min-height: 210px;
+        aspect-ratio: 4 / 3;
+        min-height: 52vh;
     }
 
     .page-title {
@@ -692,13 +709,15 @@
 
 @media (max-width: 375px) {
     .viewfinder-container {
-        min-height: 190px;
+        aspect-ratio: 4 / 3;
+        min-height: 50vh;
     }
 }
 
 @media (max-width: 320px) {
     .viewfinder-container {
-        min-height: 170px;
+        aspect-ratio: 4 / 3;
+        min-height: 46vh;
     }
 
     .page-title {
@@ -706,6 +725,6 @@
     }
 
     .viewfinder-card {
-        padding: 8px;
+        padding: 4px;
     }
 }

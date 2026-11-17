@@ -1,0 +1,48 @@
+# Konfigurasi arsitektur jaringan saraf YOLOv8 polosan (tanpa bobot pre-trained)
+# Dirancang khusus untuk deteksi 1 kelas objek yaitu wajah manusia (face)
+# Digunakan oleh training_python/tahap_02_training_yolo_wajah.py untuk pelatihan dari Epoch 0 di GPU RTX 4060
+
+# Jumlah kelas deteksi (1 kelas: wajah manusia)
+nc: 1
+names:
+  0: face
+
+# Faktor skala kedalaman layer (depth) dan lebar channel (width)
+# Dipilih pada titik seimbang antara ketajaman fitur deteksi wajah dan kecepatan real-time kamera web
+depth_multiple: 0.33
+width_multiple: 0.50
+max_channels: 1024
+
+# Bagian Backbone: mengekstrak peta fitur spasial multi-skala (P1 hingga P5) dari piksel gambar input
+backbone:
+  # [indeks_asal, jumlah_pengulangan, nama_modul, argumen_layer]
+  - [-1, 1, Conv, [64, 3, 2]]        # Layer 0 - P1/2: konvolusi awal penurun resolusi 1/2
+  - [-1, 1, Conv, [128, 3, 2]]       # Layer 1 - P2/4: konvolusi penurun resolusi 1/4
+  - [-1, 3, C2f, [128, True]]        # Layer 2: blok ekstraksi fitur C2f dengan koneksi residual
+  - [-1, 1, Conv, [256, 3, 2]]       # Layer 3 - P3/8: konvolusi penurun resolusi 1/8 (skala wajah kecil)
+  - [-1, 6, C2f, [256, True]]        # Layer 4: blok ekstraksi fitur C2f pada skala P3
+  - [-1, 1, Conv, [512, 3, 2]]       # Layer 5 - P4/16: konvolusi penurun resolusi 1/16 (skala wajah sedang)
+  - [-1, 6, C2f, [512, True]]        # Layer 6: blok ekstraksi fitur C2f pada skala P4
+  - [-1, 1, Conv, [1024, 3, 2]]      # Layer 7 - P5/32: konvolusi penurun resolusi 1/32 (skala wajah besar/dekat)
+  - [-1, 3, C2f, [1024, True]]       # Layer 8: blok ekstraksi fitur C2f pada skala P5
+  - [-1, 1, SPPF, [1024, 5]]         # Layer 9: Spatial Pyramid Pooling Fast untuk menggabungkan konteks multi-skala
+
+# Bagian Head (PANet + Detect): menggabungkan fitur atas-bawah dan bawah-atas untuk prediksi kotak wajah
+head:
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # Layer 10: perbesaran ukuran peta fitur P5 ke skala P4
+  - [[-1, 6], 1, Concat, [1]]                  # Layer 11: penggabungan fitur dengan output backbone P4 (Layer 6)
+  - [-1, 3, C2f, [512]]                        # Layer 12: pemurnian fitur gabungan skala P4
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # Layer 13: perbesaran ukuran peta fitur P4 ke skala P3
+  - [[-1, 4], 1, Concat, [1]]                  # Layer 14: penggabungan fitur dengan output backbone P3 (Layer 4)
+  - [-1, 3, C2f, [256]]                        # Layer 15 (P3/8-small): kepala deteksi untuk wajah berukuran kecil/jauh
+
+  - [-1, 1, Conv, [256, 3, 2]]                 # Layer 16: penurunan resolusi kembali dari P3 ke P4
+  - [[-1, 12], 1, Concat, [1]]                 # Layer 17: penggabungan fitur dengan head P4 (Layer 12)
+  - [-1, 3, C2f, [512]]                        # Layer 18 (P4/16-medium): kepala deteksi untuk wajah berukuran sedang
+
+  - [-1, 1, Conv, [512, 3, 2]]                 # Layer 19: penurunan resolusi dari P4 ke P5
+  - [[-1, 9], 1, Concat, [1]]                  # Layer 20: penggabungan fitur dengan output SPPF P5 (Layer 9)
+  - [-1, 3, C2f, [1024]]                       # Layer 21 (P5/32-large): kepala deteksi untuk wajah berukuran besar/dekat
+
+  - [[15, 18, 21], 1, Detect, [nc]]            # Layer 22: modul prediksi akhir koordinat bounding box dan skor kelas wajah

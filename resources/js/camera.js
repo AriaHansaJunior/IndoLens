@@ -14,7 +14,7 @@ const CameraCapture = {
     // Frame Pipeline State
     isPipelineActive: false,
     pipelineIntervalId: null,
-    pipelineTargetFps: 10,
+    pipelineTargetFps: 14,
     pipelineStartTime: null,
     totalFramesIngested: 0,
     totalManualSnapshots: 0,
@@ -24,7 +24,7 @@ const CameraCapture = {
     bufferCtx: null,
     yoloCanvas: null,
     yoloCtx: null,
-    YOLO_SEND_MAX_WIDTH: 640,
+    YOLO_SEND_MAX_WIDTH: 480,
 
     // YOLO + FaceNet Detection State
     detectionCanvas: null,
@@ -38,12 +38,14 @@ const CameraCapture = {
     actorDbCache: {},
     lastActiveSyncTime: 0,
 
-    // Frame-Difference Video State
+    // Frame-Difference Video State & Scene-Cut Box Clearing
     videoState: 'idle',
     prevFrameData: null,
     consecutiveStableFrames: 0,
     PAUSE_DIFF_THRESHOLD: 3.2,
     PAUSE_CONSECUTIVE_REQUIRED: 4,
+    SCENE_CUT_DIFF_THRESHOLD: 18.0,
+    sceneCutEpoch: 0,
 
     // Dedicated Latest Frame Buffer (Ready for future AI processing)
     latestFrame: {
@@ -466,6 +468,19 @@ const CameraCapture = {
 
         this.prevFrameData.set(currentData);
 
+        // Bersihkan kotak deteksi lama seketika saat terjadi pergantian scene atau perubahan angle mendadak
+        if (meanDiff >= this.SCENE_CUT_DIFF_THRESHOLD) {
+            this.sceneCutEpoch++;
+            if (this.latestDetections.length > 0) {
+                this.latestDetections = [];
+                this.facesDetectedCount = 0;
+                if (this.detectionCanvas && this.detectionCtx) {
+                    this.detectionCtx.clearRect(0, 0, this.detectionCanvas.width, this.detectionCanvas.height);
+                }
+                this.renderDetectedFacesList([]);
+            }
+        }
+
         if (meanDiff <= this.PAUSE_DIFF_THRESHOLD) {
             this.consecutiveStableFrames++;
             if (this.consecutiveStableFrames >= this.PAUSE_CONSECUTIVE_REQUIRED && this.videoState !== 'paused') {
@@ -624,11 +639,23 @@ const CameraCapture = {
         if (!frame || !frame.canvas || !frame.width || !frame.height) return;
 
         this.isDetectionInFlight = true;
+        const requestSceneEpoch = this.sceneCutEpoch;
 
         try {
-            // Downsampled JPEG for fast mobile transfer
+            // Mengambil gambar terbaru langsung dari elemen video tepat saat pengiriman agar tidak tertinggal frame
+            const video = this.elements.video;
+            if (video && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+                const yoloW = Math.min(video.videoWidth, this.YOLO_SEND_MAX_WIDTH);
+                const yoloH = Math.round(video.videoHeight * (yoloW / video.videoWidth));
+                if (this.yoloCanvas.width !== yoloW || this.yoloCanvas.height !== yoloH) {
+                    this.yoloCanvas.width = yoloW;
+                    this.yoloCanvas.height = yoloH;
+                }
+                this.yoloCtx.drawImage(video, 0, 0, yoloW, yoloH);
+            }
+
             const blob = await new Promise((resolve) =>
-                this.yoloCanvas.toBlob(resolve, 'image/jpeg', 0.70)
+                this.yoloCanvas.toBlob(resolve, 'image/jpeg', 0.65)
             );
 
             if (!blob || !this.isStreaming || !this.isPipelineActive) {
@@ -652,6 +679,11 @@ const CameraCapture = {
 
             const data = await response.json();
 
+            // Abaikan respons lama apabila scene/angle kamera sudah berganti selama request berjalan
+            if (this.sceneCutEpoch !== requestSceneEpoch) {
+                return;
+            }
+
             if (data.status === 'success' && this.isStreaming && this.isPipelineActive) {
                 this.latestDetections = data.faces || [];
                 this.facesDetectedCount = data.faces_count || 0;
@@ -659,7 +691,9 @@ const CameraCapture = {
                 this.lastYoloInferenceMs = data.inference_time_ms || Math.round(t_yolo_resp - t_req_sent);
                 this.lastFaceNetLatencyMs = data.facenet_time_ms || 0;
 
-                // Update telemetry fields (including FaceNet vector status)
+                // Gambar kotak bounding box seketika tanpa menunggu lookup database tambahan
+                this.renderBoundingBoxes(this.latestDetections, data.frame_dimensions);
+
                 this.updateYoloTelemetry(
                     this.facesDetectedCount,
                     this.lastYoloInferenceMs,
@@ -667,10 +701,7 @@ const CameraCapture = {
                     this.latestDetections
                 );
 
-                // Resolve recognized known actors against MySQL
                 await this.resolveKnownActors(this.latestDetections);
-
-                this.renderBoundingBoxes(this.latestDetections, data.frame_dimensions);
                 this.renderDetectedFacesList(this.latestDetections);
 
                 if (this.videoState === 'paused') {

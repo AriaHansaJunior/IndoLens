@@ -1,5 +1,7 @@
-import sys
+"""Modul pencocokan vektor embedding wajah kamera terhadap database embedding referensi (.npy) di python/embeddings/."""
+
 import json
+import sys
 from pathlib import Path
 import numpy as np
 
@@ -7,120 +9,151 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from config.dataset import EMBEDDING_PATH, FACENET_EMBEDDING_DIM, FACE_DISTANCE_THRESHOLD
-from recognition.euclidean_distance import calculate_distance, calculate_all_distances
-from recognition.threshold import verify_threshold, classify_result
+from config.dataset import (
+    EMBEDDING_PATH,
+    DIMENSI_EMBEDDING_FACENET,
+    BATAS_AMBANG_JARAK_EUCLIDEAN,
+)
+from recognition.euclidean_distance import (
+    hitung_jarak_euclidean,
+    hitung_semua_jarak_ke_database,
+)
+from recognition.threshold import (
+    verifikasi_batas_ambang_jarak,
+    klasifikasikan_hasil_pencocokan_wajah,
+)
 
 
-def load_actor_embeddings(actor_name, base_path=EMBEDDING_PATH, allowed_files=None, full_name=None):
-    """Load valid FaceNet reference embeddings (.npy) for a specific actor."""
-    actor_dir = Path(base_path) / actor_name
-    embeddings = []
-    if not actor_dir.exists() or not actor_dir.is_dir():
-        return embeddings
+def muat_embedding_satu_aktor(
+    nama_slug_aktor: str,
+    folder_dasar_embedding: str | Path = EMBEDDING_PATH,
+    daftar_file_diizinkan: set | list | None = None,
+    nama_lengkap_aktor: str | None = None,
+) -> list[dict]:
+    """
+    Membaca seluruh file vektor .npy (512-D) milik satu aktor dari folder python/embeddings/<nama_slug_aktor>
+    beserta nama lengkap aktor dari manifest.json.
+    """
+    folder_aktor = Path(folder_dasar_embedding) / nama_slug_aktor
+    daftar_embedding = []
+    if not folder_aktor.exists() or not folder_aktor.is_dir():
+        return daftar_embedding
 
-    for npy_file in sorted(actor_dir.glob("*.npy")):
-        if allowed_files is not None and npy_file.name not in allowed_files:
+    for file_npy in sorted(folder_aktor.glob("*.npy")):
+        if daftar_file_diizinkan is not None and file_npy.name not in daftar_file_diizinkan:
             continue
         try:
-            emb = np.load(str(npy_file))
-            if len(emb) == FACENET_EMBEDDING_DIM:
-                embeddings.append({
-                    "file": npy_file.name,
-                    "path": str(npy_file),
-                    "embedding": emb,
-                    "full_name": full_name or actor_name.replace("_", " ").title()
-                })
+            vektor_npy = np.load(str(file_npy))
+            if len(vektor_npy) == DIMENSI_EMBEDDING_FACENET:
+                daftar_embedding.append(
+                    {
+                        "file": file_npy.name,
+                        "path": str(file_npy),
+                        "embedding": vektor_npy,
+                        "full_name": nama_lengkap_aktor or nama_slug_aktor.replace("_", " ").title(),
+                    }
+                )
         except Exception:
             continue
 
-    return embeddings
+    return daftar_embedding
 
 
-def load_all_embeddings(base_path=EMBEDDING_PATH):
+def muat_semua_database_embedding_aktor(
+    folder_dasar_embedding: str | Path = EMBEDDING_PATH,
+) -> dict[str, list[dict]]:
     """
-    Load all reference actor embeddings from base embedding path.
-    If manifest.json exists, enriches actor records with real MySQL full_name.
-    
-    :param base_path: Path or str base directory of embeddings
-    :return: dict mapping actor_name -> list of embedding dicts
+    Memuat seluruh embedding referensi (.npy) untuk semua aktor yang terdaftar di python/embeddings/manifest.json
+    ke dalam memori untuk pencocokan Euclidean Distance pada evaluasi maupun kamera real-time.
     """
-    path = Path(base_path)
-    all_embeddings = {}
-    if not path.exists() or not path.is_dir():
-        return all_embeddings
+    path_dasar = Path(folder_dasar_embedding)
+    kamus_semua_embedding: dict[str, list[dict]] = {}
+    if not path_dasar.exists() or not path_dasar.is_dir():
+        return kamus_semua_embedding
 
-    manifest_file = path / "manifest.json"
-    manifest_actors = {}
-    if manifest_file.exists():
+    file_manifest = path_dasar / "manifest.json"
+    data_aktor_manifest = {}
+    if file_manifest.exists():
         try:
-            with open(manifest_file, "r", encoding="utf-8") as f:
-                manifest_data = json.load(f)
-                manifest_actors = manifest_data.get("actors", {})
+            isi_json = json.loads(file_manifest.read_text(encoding="utf-8"))
+            data_aktor_manifest = isi_json.get("actors", {})
         except Exception:
-            manifest_actors = {}
+            data_aktor_manifest = {}
 
-    for item in sorted(path.iterdir()):
-        if item.is_dir() and not item.name.startswith("."):
-            actor_slug = item.name
-            meta = manifest_actors.get(actor_slug, {}) if isinstance(manifest_actors, dict) else {}
-            full_name = meta.get("full_name")
-            actor_embs = load_actor_embeddings(
-                actor_slug,
-                base_path=path,
-                full_name=full_name
+    for item_folder in sorted(path_dasar.iterdir()):
+        if item_folder.is_dir() and not item_folder.name.startswith("."):
+            slug_aktor = item_folder.name
+            meta_aktor = (
+                data_aktor_manifest.get(slug_aktor, {})
+                if isinstance(data_aktor_manifest, dict)
+                else {}
             )
-            if actor_embs:
-                all_embeddings[actor_slug] = actor_embs
+            nama_lengkap = meta_aktor.get("full_name")
+            file_aktif = meta_aktor.get("files")
+            set_file_aktif = set(file_aktif) if isinstance(file_aktif, list) and file_aktif else None
 
-    return all_embeddings
+            koleksi_embedding_aktor = muat_embedding_satu_aktor(
+                slug_aktor,
+                folder_dasar_embedding=path_dasar,
+                daftar_file_diizinkan=set_file_aktif,
+                nama_lengkap_aktor=nama_lengkap,
+            )
+            if koleksi_embedding_aktor:
+                kamus_semua_embedding[slug_aktor] = koleksi_embedding_aktor
+
+    return kamus_semua_embedding
 
 
-def compare_embedding(query_embedding, target_embedding):
+def bandingkan_dua_vektor_embedding(vektor_input: np.ndarray, vektor_target: np.ndarray) -> float:
     """
-    Compare two 128-D embedding vectors using Euclidean Distance.
-    
-    :param query_embedding: numpy.ndarray
-    :param target_embedding: numpy.ndarray
-    :return: float Euclidean distance
+    Menghitung jarak Euclidean antara dua vektor embedding 512-D melalui modul euclidean_distance.py.
     """
-    return calculate_distance(query_embedding, target_embedding)
+    return hitung_jarak_euclidean(vektor_input, vektor_target)
 
 
-def find_best_match(query_embedding, all_actor_embeddings, threshold=FACE_DISTANCE_THRESHOLD):
+def cari_kecocokan_aktor_terdekat(
+    vektor_wajah_input: np.ndarray,
+    kamus_semua_embedding_aktor: dict,
+    batas_ambang_jarak: float = BATAS_AMBANG_JARAK_EUCLIDEAN,
+) -> dict:
     """
-    Find closest matching actor embedding via minimum Euclidean distance across ALL loaded actor embeddings.
-    
-    LOCK 7: Compare against ALL embeddings.
-    LOCK 1: min(distance) <= threshold -> Known; min(distance) > threshold -> Tidak Dikenali
-    
-    :param query_embedding: 128-D query embedding numpy array
-    :param all_actor_embeddings: dict of loaded actor embeddings
-    :param threshold: float distance threshold
-    :return: dict classification result {"actor": str, "distance": float, "status": str}
+    Mencari jarak Euclidean paling minimum antara vektor_wajah_input terhadap seluruh embedding referensi aktor,
+    lalu memverifikasi apakah jarak minimum tersebut berada di bawah batas_ambang_jarak (threshold).
     """
-    if query_embedding is None or len(query_embedding) == 0:
-        return classify_result(None, float('inf'), False)
+    if vektor_wajah_input is None or len(vektor_wajah_input) == 0:
+        return klasifikasikan_hasil_pencocokan_wajah(None, float("inf"), False)
 
-    if not all_actor_embeddings:
-        return classify_result(None, float('inf'), False)
+    if not kamus_semua_embedding_aktor:
+        return klasifikasikan_hasil_pencocokan_wajah(None, float("inf"), False)
 
-    all_distances = calculate_all_distances(query_embedding, all_actor_embeddings)
-    if not all_distances:
-        return classify_result(None, float('inf'), False)
+    semua_jarak = hitung_semua_jarak_ke_database(vektor_wajah_input, kamus_semua_embedding_aktor)
+    if not semua_jarak:
+        return klasifikasikan_hasil_pencocokan_wajah(None, float("inf"), False)
 
-    # Find global minimum distance item
-    best_item = min(all_distances, key=lambda x: x["distance"])
-    best_actor_key = best_item["actor"]
-    min_distance = best_item["distance"]
+    item_terdekat = min(semua_jarak, key=lambda x: x["distance"])
+    kunci_aktor_terbaik = item_terdekat["actor"]
+    jarak_euclidean_minimum = float(item_terdekat["distance"])
 
-    # Use the real MySQL full_name if recorded on the embedding item
-    actor_display_name = best_actor_key
-    actor_list = all_actor_embeddings.get(best_actor_key, [])
-    if actor_list and isinstance(actor_list, list) and len(actor_list) > 0:
-        first_item = actor_list[0]
-        if isinstance(first_item, dict) and "full_name" in first_item and first_item["full_name"]:
-            actor_display_name = first_item["full_name"]
+    nama_tampilan_aktor = kunci_aktor_terbaik
+    daftar_milik_aktor = kamus_semua_embedding_aktor.get(kunci_aktor_terbaik, [])
+    if daftar_milik_aktor and isinstance(daftar_milik_aktor, list):
+        item_pertama = daftar_milik_aktor[0]
+        if isinstance(item_pertama, dict) and item_pertama.get("full_name"):
+            nama_tampilan_aktor = item_pertama["full_name"]
 
-    is_below = verify_threshold(min_distance, threshold=threshold)
-    return classify_result(actor_display_name, min_distance, is_below)
+    lolos_ambang = verifikasi_batas_ambang_jarak(
+        jarak_euclidean_minimum,
+        batas_ambang_jarak=batas_ambang_jarak,
+    )
+    return klasifikasikan_hasil_pencocokan_wajah(
+        nama_tampilan_aktor,
+        jarak_euclidean_minimum,
+        lolos_ambang,
+    )
+
+
+# Menyediakan alias fungsi untuk menjaga kompatibilitas pemanggilan di yolo_service.py dan modul lainnya
+load_actor_embeddings = muat_embedding_satu_aktor
+load_all_embeddings = muat_semua_database_embedding_aktor
+compare_embedding = bandingkan_dua_vektor_embedding
+find_best_match = cari_kecocokan_aktor_terdekat
