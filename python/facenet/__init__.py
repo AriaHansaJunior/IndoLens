@@ -2,7 +2,7 @@ from facenet.arsitektur_facenet_manual import (
     BlokKonvolusiDasar,
     BlokInceptionResidual,
     BlokReduksiSpasial,
-    JaringanFaceNetMandiri,
+    JaringanFaceNet,
     FungsiTripletMarginLoss,
     hitung_triplet_margin_loss,
 )
@@ -26,7 +26,7 @@ __all__ = [
     "BlokKonvolusiDasar",
     "BlokInceptionResidual",
     "BlokReduksiSpasial",
-    "JaringanFaceNetMandiri",
+    "JaringanFaceNet",
     "FungsiTripletMarginLoss",
     "hitung_triplet_margin_loss",
     "pilih_perangkat_komputasi_facenet",

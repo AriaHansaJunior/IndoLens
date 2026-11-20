@@ -84,22 +84,50 @@ def hitung_distribusi_jarak_intra_dan_inter_kelas(
     }
 
 
+def hitung_kesehatan_dimensi_embedding(kamus_embedding_referensi: dict[str, list[dict]]) -> dict:
+    """
+    Menganalisis sebaran dimensi efektif ruang vektor 512-D menggunakan SVD
+    untuk memastikan embedding referensi tersebar luas tanpa dimensional collapse.
+    """
+    semua_vektor = [
+        np.asarray(item["embedding"], dtype=np.float32)
+        for daftar_item in kamus_embedding_referensi.values()
+        for item in daftar_item
+    ]
+    if len(semua_vektor) < 4:
+        return {"dimensi_efektif_95_persen": 0, "rasio_variansi_top3": 0.0}
+
+    matriks = np.stack(semua_vektor, axis=0)
+    matriks_pusat = matriks - np.mean(matriks, axis=0, keepdims=True)
+    _, nilai_singular, _ = np.linalg.svd(matriks_pusat, full_matrices=False)
+    total_variansi = float(np.sum(nilai_singular ** 2))
+    if total_variansi <= 1e-12:
+        return {"dimensi_efektif_95_persen": 0, "rasio_variansi_top3": 1.0}
+
+    rasio_variansi = (nilai_singular ** 2) / total_variansi
+    kumulatif = np.cumsum(rasio_variansi)
+    return {
+        "dimensi_efektif_95_persen": int(np.searchsorted(kumulatif, 0.95) + 1),
+        "rasio_variansi_top3": round(float(np.sum(rasio_variansi[:3])), 4),
+    }
+
+
 def kumpulkan_sampel_uji_evaluasi(
     manifest_crop: dict,
     model_facenet_aktif,
 ) -> tuple[list[dict], list[np.ndarray]]:
     """
-    Mengekstrak vektor embedding 512-D dari sampel wajah aktor dan sampel wajah orang random
-    untuk digunakan pada pengujian variasi threshold serta pembentukan Confusion Matrix.
+    Mengekstrak vektor embedding 512-D dari sampel asli wajah aktor (untuk evaluasi Leave-One-Image-Out)
+    dan sampel wajah orang random (Unknown) agar rasio kelas uji seimbang dan bebas data leakage.
     """
     daftar_sampel_evaluasi: list[dict] = []
     daftar_vektor_random: list[np.ndarray] = []
 
     for slug_aktor, info_aktor in sorted(manifest_crop.get("aktor", {}).items()):
         nama_resmi = format_nama_tampilan_aktor(info_aktor.get("full_name") or slug_aktor)
-        koleksi_uji = info_aktor.get("sampel_augmentasi", []) or info_aktor.get("sampel_asli", [])
+        koleksi_uji = info_aktor.get("sampel_asli", [])
 
-        for item_uji in koleksi_uji:
+        for indeks_sampel, item_uji in enumerate(koleksi_uji, start=1):
             path_npy = Path(item_uji["path_tensor_npy"])
             if not path_npy.exists():
                 continue
@@ -109,11 +137,13 @@ def kumpulkan_sampel_uji_evaluasi(
                 model_facenet_aktif=model_facenet_aktif,
                 sudah_ternormalisasi=True,
             )
+            id_gambar = str(item_uji.get("image_id") or indeks_sampel)
             daftar_sampel_evaluasi.append(
                 {
                     "label_sebenarnya": nama_resmi,
                     "vektor_embedding": vektor_uji,
-                    "id_gambar": str(item_uji.get("image_id", "")),
+                    "id_gambar": id_gambar,
+                    "nama_file_npy": f"{id_gambar}.npy",
                     "tipe_data": "aktor_terdaftar",
                 }
             )
@@ -134,6 +164,7 @@ def kumpulkan_sampel_uji_evaluasi(
                 "label_sebenarnya": "Tidak Dikenali",
                 "vektor_embedding": vektor_rand,
                 "id_gambar": str(item_rand.get("id_sampel", "random")),
+                "nama_file_npy": None,
                 "tipe_data": "orang_random_unknown",
             }
         )
@@ -146,10 +177,12 @@ def kalibrasi_threshold_dan_evaluasi_matrix_f1(
     folder_embedding_produksi: Path = konfig.FOLDER_EMBEDDING_PRODUKSI,
 ) -> dict:
     """
-    Memuat database embedding referensi (.npy) dari python/embeddings/ dan model FaceNet mandiri di GPU RTX 4060,
+    Memuat database embedding referensi (.npy) dari python/embeddings/ dan model FaceNet di GPU RTX 4060,
     menguji rentang batas ambang jarak Euclidean (0.45 s/d 1.15) untuk menemukan threshold dengan F1-Score tertinggi,
     serta menghasilkan tabel Confusion Matrix (TP, TN, FP, FN), Accuracy, Precision, Recall, dan F1-Score.
     """
+    # Mengaktifkan mode output Jupyter unlimited sebelum mencetak kalibrasi threshold dan Confusion Matrix
+    konfig.aktifkan_output_notebook_unlimited()
     konfig.pastikan_semua_folder_tersedia()
     path_manifest_crop = konfig.FOLDER_CROP_WAJAH_160X160 / "manifest_preprocessing_wajah.json"
     if not path_manifest_crop.exists():
@@ -159,7 +192,7 @@ def kalibrasi_threshold_dan_evaluasi_matrix_f1(
         )
 
     _, _, info_perangkat_gpu = konfig.pilih_perangkat_gpu_rtx_wajib(wajib_cuda=True)
-    model_facenet_mandiri = muat_model_hasil_training_facenet(path_bobot_facenet)
+    model_facenet = muat_model_hasil_training_facenet(path_bobot_facenet)
     kamus_embedding_referensi = muat_semua_database_embedding_aktor(folder_embedding_produksi)
 
     if not kamus_embedding_referensi:
@@ -179,28 +212,31 @@ def kalibrasi_threshold_dan_evaluasi_matrix_f1(
 
     daftar_sampel_evaluasi, daftar_vektor_random = kumpulkan_sampel_uji_evaluasi(
         manifest_crop,
-        model_facenet_mandiri,
+        model_facenet,
     )
     distribusi_jarak = hitung_distribusi_jarak_intra_dan_inter_kelas(
         kamus_embedding_referensi,
         daftar_vektor_random,
     )
+    kesehatan_dimensi = hitung_kesehatan_dimensi_embedding(kamus_embedding_referensi)
 
-    kandidat_threshold = [round(0.45 + (i * 0.05), 2) for i in range(15)]
+    # Menguji rentang threshold lebih luas (0.20 s/d 1.15) dengan evaluasi Leave-One-Image-Out bebas leakage
+    kandidat_threshold = [round(0.20 + (i * 0.05), 2) for i in range(20)]
     tabel_uji_threshold: list[dict] = []
-    threshold_optimal = konfig.BATAS_AMBANG_JARAK_AWAL
-    skor_f1_terbaik = -1.0
-    skor_akurasi_terbaik = -1.0
+    kandidat_terbaik_aman: dict | None = None
+    kandidat_terbaik_seimbang: dict | None = None
 
     for ambang_uji in kandidat_threshold:
         label_asli_uji = []
         label_prediksi_uji = []
 
         for sampel in daftar_sampel_evaluasi:
+            file_dikecualikan = {sampel["nama_file_npy"]} if sampel.get("nama_file_npy") else None
             hasil_cocok = cari_kecocokan_aktor_terdekat(
                 sampel["vektor_embedding"],
                 kamus_embedding_referensi,
                 batas_ambang_jarak=ambang_uji,
+                kecualikan_file_npy=file_dikecualikan,
             )
             label_asli_uji.append(sampel["label_sebenarnya"])
             label_prediksi_uji.append(hasil_cocok["actor"])
@@ -210,27 +246,53 @@ def kalibrasi_threshold_dan_evaluasi_matrix_f1(
             label_prediksi_uji,
             label_unknown="Tidak Dikenali",
         )
+        total_negatif_uji = metrik_uji["true_negatives"] + metrik_uji["false_positives"]
+        specificity_unknown = (
+            round(metrik_uji["true_negatives"] / total_negatif_uji, 4)
+            if total_negatif_uji > 0
+            else 1.0
+        )
+        skor_seimbang = round((0.50 * metrik_uji["f1_score"]) + (0.50 * specificity_unknown), 4)
+
         baris_threshold = {
             "batas_ambang_jarak": ambang_uji,
             **metrik_uji,
+            "specificity_unknown": specificity_unknown,
+            "skor_seimbang": skor_seimbang,
         }
         tabel_uji_threshold.append(baris_threshold)
 
-        if (metrik_uji["f1_score"] > skor_f1_terbaik) or (
-            metrik_uji["f1_score"] == skor_f1_terbaik and metrik_uji["accuracy"] > skor_akurasi_terbaik
-        ):
-            skor_f1_terbaik = metrik_uji["f1_score"]
-            skor_akurasi_terbaik = metrik_uji["accuracy"]
-            threshold_optimal = ambang_uji
+        # Memprioritaskan threshold ketat (<= 0.55) dengan penolakan Unknown >= 97% agar kamera web bebas false positive
+        if specificity_unknown >= 0.97 and ambang_uji <= 0.55:
+            if kandidat_terbaik_aman is None or (
+                baris_threshold["skor_seimbang"] > kandidat_terbaik_aman["skor_seimbang"] + 1e-4
+            ) or (
+                abs(baris_threshold["skor_seimbang"] - kandidat_terbaik_aman["skor_seimbang"]) <= 1e-4
+                and baris_threshold["batas_ambang_jarak"] < kandidat_terbaik_aman["batas_ambang_jarak"]
+            ):
+                kandidat_terbaik_aman = baris_threshold
 
-    # Menghitung prediksi akhir dan Confusion Matrix menggunakan threshold_optimal
+        if kandidat_terbaik_seimbang is None or (
+            baris_threshold["skor_seimbang"] > kandidat_terbaik_seimbang["skor_seimbang"] + 1e-4
+        ) or (
+            abs(baris_threshold["skor_seimbang"] - kandidat_terbaik_seimbang["skor_seimbang"]) <= 1e-4
+            and baris_threshold["batas_ambang_jarak"] < kandidat_terbaik_seimbang["batas_ambang_jarak"]
+        ):
+            kandidat_terbaik_seimbang = baris_threshold
+
+    baris_terpilih = kandidat_terbaik_aman or kandidat_terbaik_seimbang
+    threshold_optimal = float(baris_terpilih["batas_ambang_jarak"]) if baris_terpilih else konfig.BATAS_AMBANG_JARAK_AWAL
+
+    # Menghitung prediksi akhir dan Confusion Matrix menggunakan threshold_optimal (Leave-One-Image-Out)
     daftar_label_asli_final = []
     daftar_label_prediksi_final = []
     for sampel in daftar_sampel_evaluasi:
+        file_dikecualikan = {sampel["nama_file_npy"]} if sampel.get("nama_file_npy") else None
         hasil_final = cari_kecocokan_aktor_terdekat(
             sampel["vektor_embedding"],
             kamus_embedding_referensi,
             batas_ambang_jarak=threshold_optimal,
+            kecualikan_file_npy=file_dikecualikan,
         )
         daftar_label_asli_final.append(sampel["label_sebenarnya"])
         daftar_label_prediksi_final.append(hasil_final["actor"])
@@ -239,6 +301,12 @@ def kalibrasi_threshold_dan_evaluasi_matrix_f1(
         daftar_label_asli_final,
         daftar_label_prediksi_final,
         label_unknown="Tidak Dikenali",
+    )
+    total_negatif_final = metrik_final["true_negatives"] + metrik_final["false_positives"]
+    metrik_final["specificity_unknown"] = (
+        round(metrik_final["true_negatives"] / total_negatif_final, 4)
+        if total_negatif_final > 0
+        else 1.0
     )
     matriks_konfusi, daftar_kelas_urut = bangun_matriks_konfusi(
         daftar_label_asli_final,
@@ -261,7 +329,9 @@ def kalibrasi_threshold_dan_evaluasi_matrix_f1(
         "waktu_evaluasi": time.strftime("%Y-%m-%d %H:%M:%S"),
         "durasi_evaluasi_detik": durasi_detik,
         "perangkat_gpu": info_perangkat_gpu["nama_gpu"],
+        "metode_evaluasi": "Leave-One-Image-Out (LOIO) + Centroid-TopK Matching",
         "batas_ambang_jarak_optimal": threshold_optimal,
+        "kesehatan_dimensi_embedding": kesehatan_dimensi,
         "metrik_utama_skripsi": metrik_final,
         "distribusi_jarak_euclidean": distribusi_jarak,
         "confusion_matrix": dict_matriks_konfusi,
@@ -278,6 +348,8 @@ def kalibrasi_threshold_dan_evaluasi_matrix_f1(
     print(f"[OK] Precision                              : {metrik_final['precision'] * 100:.2f}%")
     print(f"[OK] Recall                                 : {metrik_final['recall'] * 100:.2f}%")
     print(f"[OK] F1-Score                               : {metrik_final['f1_score'] * 100:.2f}%")
+    print(f"[OK] Penolakan Unknown (Specificity / TNR)  : {metrik_final['specificity_unknown'] * 100:.2f}%")
+    print(f"[OK] Dimensi Efektif 95% (SVD)              : {kesehatan_dimensi['dimensi_efektif_95_persen']} dimensi (Top-3 var = {kesehatan_dimensi['rasio_variansi_top3'] * 100:.1f}%)")
     print(
         f"[OK] Komponen Confusion Matrix              : "
         f"TP={metrik_final['true_positives']}, TN={metrik_final['true_negatives']}, "

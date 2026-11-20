@@ -29,7 +29,7 @@ PUBLIC_DIR = PROJECT_ROOT / "public"
 UPLOADS_DIR = PUBLIC_DIR / "uploads"
 RESULTS_DIR = PUBLIC_DIR / "results"
 
-# Menentukan lokasi file konfigurasi arsitektur YOLOv8 polosan dan lokasi file bobot hasil training mandiri
+# Menentukan lokasi file konfigurasi arsitektur YOLOv8 dan lokasi file bobot hasil training
 FILE_ARSITEKTUR_YOLOV8_WAJAH = BASE_DIR / "config" / "arsitektur_yolov8_wajah.yaml"
 FILE_BOBOT_HASIL_TRAINING_YOLO = WEIGHTS_DIR / "hasil_training_yolov8_wajah.pt"
 FILE_BOBOT_HASIL_TRAINING_FACENET = WEIGHTS_DIR / "hasil_training_facenet_aktor.pth"

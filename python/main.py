@@ -10,12 +10,24 @@ if str(BASE_DIR) not in sys.path:
 
 from utils.logger import initialize_logger, log_info, log_success, log_warning, log_error, log_execution
 from utils.exception import handle_exception, handle_model_error, handle_video_error, handle_dataset_error, IndoLensException
-from utils.validator import validate_video, validate_dataset, validate_output
+from utils.validator import validate_video, validate_output
+from utils.dataset_validator import validate_dataset
+from utils.dataset_scanner import scan_dataset
 from utils.dataset_loader import load_dataset
+from utils.image_loader import read_image
 from config.dataset import EMBEDDING_PATH
+from yolo.detector import (
+    detect_faces as yolo_detect_faces,
+    predict_frame as yolo_predict_frame,
+    predict_video as yolo_predict_video,
+    export_detection,
+)
+from yolo.face_cropper import crop_face as yolo_crop_face
 from facenet.embedding_generator import generate_embedding, save_embedding, ekstrak_vektor_embedding_wajah
 from facenet.arsitektur_facenet_manual import hitung_triplet_margin_loss
-from recognition.recognition_engine import recognize_video
+from recognition.embedding_matcher import find_best_match
+from recognition.recognition_engine import recognize_video, recognize_frame
+from recognition.recognition_result import export_recognition
 from recognition.overlay_renderer import render_video
 
 # ==========================================
@@ -34,7 +46,7 @@ def crop_face(frame, bbox):
 
 # feature extraction method
 def extract_features(face_img):
-    """Mengekstrak vektor fitur embedding 512-D dari potongan citra wajah menggunakan JaringanFaceNetMandiri."""
+    """Mengekstrak vektor fitur embedding 512-D dari potongan citra wajah menggunakan JaringanFaceNet."""
     return ekstrak_vektor_embedding_wajah(face_img)
 
 # triplet loss
@@ -114,12 +126,12 @@ def main():
                     "bbox": d["bbox"],
                     "confidence": d["confidence"]
                 })
-            res = export_detection({
+            res = {
+                "command": "detect-frame",
                 "image": str(image_input),
                 "faces_count": len(serializable_dets),
-                "faces": serializable_dets
-            })
-            res["command"] = "detect-frame"
+                "faces": serializable_dets,
+            }
             log_success(f"Detection completed for image: {image_input}")
             print(json.dumps(res, indent=2))
 

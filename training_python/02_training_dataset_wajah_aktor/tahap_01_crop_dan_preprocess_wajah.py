@@ -1,6 +1,8 @@
-"""Tahap 03: Deteksi kotak wajah dengan YOLOv8 mandiri, pemotongan margin 12%, augmentasi, dan normalisasi 160x160."""
+"""Tahap 01: Deteksi kotak wajah dengan YOLOv8, pemotongan margin 12%, augmentasi, dan normalisasi 160x160."""
 
+import hashlib
 import json
+import random
 import re
 import shutil
 import sys
@@ -71,13 +73,44 @@ def baca_konfigurasi_env_mysql(path_file_env: Path = konfig.FILE_ENV_LARAVEL) ->
     return parameter_db
 
 
+def hitung_hash_md5_file(path_file: Path) -> str:
+    """
+    Menghitung nilai hash MD5 dari isi biner file gambar untuk mencegah duplikasi foto identik
+    antara folder storage/app/public/actor-images dan folder dataset wajah_aktor_target.
+    """
+    objek_md5 = hashlib.md5()
+    with open(path_file, "rb") as file_baca:
+        for potongan in iter(lambda: file_baca.read(65536), b""):
+            objek_md5.update(potongan)
+    return objek_md5.hexdigest()
+
+
 def ambil_daftar_foto_aktor_dari_mysql_dan_folder() -> dict[str, dict]:
     """
     Mengumpulkan seluruh foto wajah aktor dari tabel actor_images MySQL, folder storage/app/public/actor-images,
-    serta folder python/datasets/dataset_facenet_aktor/wajah_aktor_target untuk diproses pada Tahap 03.
+    serta folder python/datasets/dataset_facenet_aktor/wajah_aktor_target dengan deduplikasi hash MD5.
     """
     peta_aktor: dict[str, dict] = {}
     path_sudah_terdaftar: set[str] = set()
+    hash_sudah_terdaftar_per_aktor: dict[str, set[str]] = {}
+
+    def daftarkan_foto_jika_unik(slug_aktor: str, id_gambar: str, path_penuh: Path, sumber_data: str):
+        kunci_path = str(path_penuh.resolve()).lower()
+        if kunci_path in path_sudah_terdaftar:
+            return
+        nilai_hash = hitung_hash_md5_file(path_penuh)
+        kumpulan_hash = hash_sudah_terdaftar_per_aktor.setdefault(slug_aktor, set())
+        if nilai_hash in kumpulan_hash:
+            return
+        path_sudah_terdaftar.add(kunci_path)
+        kumpulan_hash.add(nilai_hash)
+        peta_aktor[slug_aktor]["daftar_foto"].append(
+            {
+                "image_id": id_gambar,
+                "path_file": path_penuh.resolve(),
+                "sumber_data": sumber_data,
+            }
+        )
 
     # 1. Mencoba mengambil daftar foto wajah resmi dari database MySQL jika layanan MySQL aktif
     try:
@@ -98,7 +131,7 @@ def ambil_daftar_foto_aktor_dari_mysql_dan_folder() -> dict[str, dict]:
             with koneksi.cursor() as kursor:
                 kursor.execute(
                     """
-                    SELECT ai.id AS image_id, ai.actor_id, ai.image_path, a.full_name
+                    SELECT ai.id AS image_id, ai.actor_id, ai.image AS image_path, a.full_name
                     FROM actor_images ai
                     INNER JOIN actors a ON a.id = ai.actor_id
                     ORDER BY a.id ASC, ai.id ASC
@@ -121,16 +154,12 @@ def ambil_daftar_foto_aktor_dari_mysql_dan_folder() -> dict[str, dict]:
                     "daftar_foto": [],
                 }
 
-            kunci_path = str(path_penuh).lower()
-            if kunci_path not in path_sudah_terdaftar:
-                path_sudah_terdaftar.add(kunci_path)
-                peta_aktor[slug_aktor]["daftar_foto"].append(
-                    {
-                        "image_id": str(rekaman["image_id"]),
-                        "path_file": path_penuh,
-                        "sumber_data": "mysql_actor_images",
-                    }
-                )
+            daftarkan_foto_jika_unik(
+                slug_aktor=slug_aktor,
+                id_gambar=str(rekaman["image_id"]),
+                path_penuh=path_penuh,
+                sumber_data="mysql_actor_images",
+            )
     except Exception:
         pass
 
@@ -159,16 +188,12 @@ def ambil_daftar_foto_aktor_dari_mysql_dan_folder() -> dict[str, dict]:
                 if file_gambar.name.lower().startswith("profile-"):
                     continue
 
-                kunci_path = str(file_gambar.resolve()).lower()
-                if kunci_path not in path_sudah_terdaftar:
-                    path_sudah_terdaftar.add(kunci_path)
-                    peta_aktor[slug_aktor]["daftar_foto"].append(
-                        {
-                            "image_id": file_gambar.stem,
-                            "path_file": file_gambar.resolve(),
-                            "sumber_data": "storage_actor_images",
-                        }
-                    )
+                daftarkan_foto_jika_unik(
+                    slug_aktor=slug_aktor,
+                    id_gambar=file_gambar.stem,
+                    path_penuh=file_gambar,
+                    sumber_data="storage_actor_images",
+                )
 
     # 3. Memindai folder python/datasets/dataset_facenet_aktor/wajah_aktor_target/<slug_aktor>
     if konfig.FOLDER_WAJAH_AKTOR_TARGET.exists():
@@ -189,16 +214,12 @@ def ambil_daftar_foto_aktor_dari_mysql_dan_folder() -> dict[str, dict]:
                 if not file_gambar.is_file() or file_gambar.suffix.lower() not in konfig.DAFTAR_EKSTENSI_GAMBAR_VALID:
                     continue
 
-                kunci_path = str(file_gambar.resolve()).lower()
-                if kunci_path not in path_sudah_terdaftar:
-                    path_sudah_terdaftar.add(kunci_path)
-                    peta_aktor[slug_aktor]["daftar_foto"].append(
-                        {
-                            "image_id": file_gambar.stem,
-                            "path_file": file_gambar.resolve(),
-                            "sumber_data": "dataset_wajah_aktor_target",
-                        }
-                    )
+                daftarkan_foto_jika_unik(
+                    slug_aktor=slug_aktor,
+                    id_gambar=file_gambar.stem,
+                    path_penuh=file_gambar,
+                    sumber_data="dataset_wajah_aktor_target",
+                )
 
     return {slug: info for slug, info in peta_aktor.items() if info["daftar_foto"]}
 
@@ -209,7 +230,7 @@ def pilih_potongan_wajah_utama_dari_gambar(
     izinkan_fallback_tengah: bool = False,
 ) -> tuple[np.ndarray | None, list[int] | None, float]:
     """
-    Mendeteksi kotak wajah pada gambar_bgr menggunakan model YOLOv8 hasil training mandiri (Tahap 02)
+    Mendeteksi kotak wajah pada gambar_bgr menggunakan model YOLOv8
     dan memilih satu wajah utama dengan skor (confidence * luas_kotak) tertinggi.
     """
     daftar_deteksi = prediksi_wajah_pada_frame(gambar_bgr, rasio_margin_crop=rasio_margin)
@@ -265,22 +286,24 @@ def ekstrak_dan_preprocess_wajah_dataset(
     rasio_margin_crop: float = konfig.RASIO_MARGIN_CROP_WAJAH,
 ) -> dict:
     """
-    Memuat model YOLOv8 hasil training mandiri (hasil_training_yolov8_wajah.pt dari Tahap 02) di GPU RTX 4060,
+    Memuat model YOLOv8 (hasil_training_yolov8_wajah.pt) di GPU RTX 4060,
     mendeteksi dan memotong wajah dari seluruh foto aktor serta foto orang random dengan margin 12%,
     mengubah ukuran piksel menjadi 160x160 RGB, membuat variasi augmentasi pose/cahaya,
-    serta menyimpan tensor ternormalisasi ke folder crop_wajah_160x160 untuk dilatih oleh FaceNet pada Tahap 04.
+    serta menyimpan tensor ternormalisasi ke folder crop_wajah_160x160 untuk dilatih oleh FaceNet pada Tahap 02.
     """
+    # Mengaktifkan mode output Jupyter unlimited sebelum memproses crop dan augmentasi seluruh dataset wajah
+    konfig.aktifkan_output_notebook_unlimited()
     konfig.pastikan_semua_folder_tersedia()
     _, _, info_perangkat_gpu = konfig.pilih_perangkat_gpu_rtx_wajib(wajib_cuda=True)
 
     print("=" * 78)
-    print("  TAHAP 03: DETEKSI CROP WAJAH (YOLO MANDIRI) & PREPROCESSING 160x160 RGB")
+    print("  TAHAP 01: DETEKSI CROP WAJAH (YOLOV8) & PREPROCESSING 160x160 RGB")
     print("=" * 78)
     print(f"[*] Perangkat Komputasi GPU     : {info_perangkat_gpu['nama_gpu']}")
     print(f"[*] Bobot Detektor YOLOv8       : {konfig.FILE_BOBOT_HASIL_TRAINING_YOLO}")
     print(f"[*] Resolusi Target FaceNet     : {konfig.UKURAN_RESOLUSI_WAJAH_FACENET[0]}x{konfig.UKURAN_RESOLUSI_WAJAH_FACENET[1]} piksel (Margin Crop = {int(rasio_margin_crop * 100)}%)")
 
-    # Memuat model YOLOv8 hasil training mandiri dari Tahap 02
+    # Memuat model YOLOv8 dari storage/app/ai/weights/hasil_training_yolov8_wajah.pt
     muat_model_hasil_training_yolo(konfig.FILE_BOBOT_HASIL_TRAINING_YOLO)
 
     peta_data_aktor = ambil_daftar_foto_aktor_dari_mysql_dan_folder()
@@ -417,6 +440,62 @@ def ekstrak_dan_preprocess_wajah_dataset(
                 "path_tensor_npy": info_simpan_rand["path_tensor_npy"],
             }
         )
+
+    # Menambahkan sampel wajah penuh adegan nyata dari raw_wajah_manusia agar kelas Unknown juga mencakup latar & resolusi kamera asli
+    if konfig.FOLDER_RAW_WAJAH_MANUSIA.exists():
+        daftar_foto_adegan = sorted(
+            [
+                file_item
+                for file_item in konfig.FOLDER_RAW_WAJAH_MANUSIA.iterdir()
+                if file_item.is_file() and file_item.suffix.lower() in konfig.DAFTAR_EKSTENSI_GAMBAR_VALID
+            ]
+        )
+        generator_adegan = random.Random(konfig.NILAI_SEED_ACAK)
+        generator_adegan.shuffle(daftar_foto_adegan)
+
+        jumlah_tambahan_adegan = 0
+        batas_tambahan_adegan = 300
+        for path_adegan in daftar_foto_adegan:
+            if jumlah_tambahan_adegan >= batas_tambahan_adegan:
+                break
+            try:
+                gambar_adegan_bgr = baca_file_gambar_ke_array(path_adegan)
+            except Exception:
+                continue
+
+            potongan_adegan_bgr, bbox_adegan, conf_adegan = pilih_potongan_wajah_utama_dari_gambar(
+                gambar_adegan_bgr,
+                rasio_margin=rasio_margin_crop,
+                izinkan_fallback_tengah=False,
+            )
+            if potongan_adegan_bgr is None or conf_adegan < 0.65:
+                continue
+            tinggi_crop, lebar_crop = potongan_adegan_bgr.shape[:2]
+            if tinggi_crop < 64 or lebar_crop < 64:
+                continue
+
+            potongan_adegan_rgb = ubah_format_bgr_ke_rgb(potongan_adegan_bgr)
+            wajah_adegan_160x160 = ubah_ukuran_piksel_wajah(
+                potongan_adegan_rgb,
+                ukuran_target=konfig.UKURAN_RESOLUSI_WAJAH_FACENET,
+            )
+
+            jumlah_tambahan_adegan += 1
+            nama_adegan = f"random_adegan_{jumlah_tambahan_adegan:04d}_{path_adegan.stem}"
+            path_jpg_adg = folder_output_random / "previews" / f"{nama_adegan}.jpg"
+            path_npy_adg = folder_output_random / "tensors" / f"{nama_adegan}.npy"
+            info_simpan_adg = simpan_citra_dan_tensor_wajah(wajah_adegan_160x160, path_jpg_adg, path_npy_adg)
+
+            daftar_sampel_orang_random.append(
+                {
+                    "id_sampel": nama_adegan,
+                    "path_sumber_asli": str(path_adegan),
+                    "bbox_yolo": bbox_adegan,
+                    "confidence_yolo": round(conf_adegan, 4),
+                    "path_preview_jpg": info_simpan_adg["path_preview_jpg"],
+                    "path_tensor_npy": info_simpan_adg["path_tensor_npy"],
+                }
+            )
 
     durasi_detik = round(time.time() - waktu_mulai, 2)
     ringkasan_preprocessing = {

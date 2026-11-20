@@ -46,7 +46,10 @@
    PHOTO CARD (LEFT)
    ------------------------------------------ */
 .actor-photo-wrapper {
-    width: clamp(220px, 22vw, 290px);
+    width: clamp(320px, 31vw, 440px);
+    aspect-ratio: 4 / 5;
+    max-height: 100%;
+    align-self: flex-start;
     flex-shrink: 0;
     border-radius: 12px;
     overflow: hidden;
@@ -62,7 +65,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center 15%;
+    object-position: center 20%;
     display: block;
 }
 
@@ -351,7 +354,8 @@
    ------------------------------------------ */
 @media (max-width: 1024px) {
     .actor-photo-wrapper {
-        width: clamp(200px, 26vw, 250px);
+        width: clamp(280px, 34vw, 350px);
+        aspect-ratio: 4 / 5;
     }
 
     .actor-title {
@@ -367,8 +371,10 @@
 
     .actor-photo-wrapper {
         width: 100%;
-        max-width: 340px;
-        height: 260px;
+        max-width: 360px;
+        aspect-ratio: 1 / 1;
+        height: auto;
+        align-self: center;
     }
 
     .meta-grid {
@@ -387,8 +393,9 @@
 
 @media (max-width: 425px) {
     .actor-photo-wrapper {
-        max-width: 100%;
-        height: 240px;
+        max-width: 320px;
+        aspect-ratio: 1 / 1;
+        height: auto;
     }
 
     .actor-title {
@@ -422,7 +429,9 @@
 
 @media (max-width: 320px) {
     .actor-photo-wrapper {
-        height: 210px;
+        max-width: 260px;
+        aspect-ratio: 1 / 1;
+        height: auto;
     }
 
     .actor-title {

@@ -18,7 +18,7 @@ from yolo.face_cropper import (
     validasi_potongan_wajah,
 )
 
-# Menyimpan instance model YOLOv8 hasil training mandiri di memori agar tidak dimuat berulang kali
+# Menyimpan instance model YOLOv8 hasil training di memori agar tidak dimuat berulang kali
 _MODEL_YOLO_TERLATIH: Any = None
 _PERANGKAT_KOMPUTASI_YOLO: Any = None
 
@@ -49,16 +49,16 @@ def pilih_perangkat_komputasi_yolo():
 def muat_model_hasil_training_yolo(path_bobot_yolo: Path | str | None = None) -> YOLO:
     """
     Memuat file bobot hasil_training_yolov8_wajah.pt dari folder storage/app/ai/weights/
-    yang dihasilkan oleh proses pelatihan mandiri pada training_python/tahap_02_training_yolo_wajah.py.
-    Menolak pemakaian model pre-trained bawaan luar apabila file hasil training sendiri belum tersedia.
+    yang dihasilkan oleh proses pelatihan pada training_python/01_training_model_yolo.
+    Menolak pemakaian model pre-trained apabila file hasil training belum tersedia.
     """
     global _MODEL_YOLO_TERLATIH
 
     path_target = Path(path_bobot_yolo) if path_bobot_yolo else Path(FILE_BOBOT_HASIL_TRAINING_YOLO)
     if not path_target.exists():
         raise FileNotFoundError(
-            f"Bobot hasil training mandiri YOLOv8 belum ditemukan di: {path_target}\n"
-            "Jalankan Tahap 01 dan Tahap 02 pada Jupyter Notebook (IndoLens_Training_Pipeline.ipynb) "
+            f"Bobot hasil training YOLOv8 belum ditemukan di: {path_target}\n"
+            "Jalankan Tahap 01 dan Tahap 02 pada Jupyter Notebook (Notebook_01_Training_Model_YOLOv8.ipynb) "
             "terlebih dahulu untuk melatih model YOLOv8 dari Epoch 0."
         )
 
@@ -68,7 +68,7 @@ def muat_model_hasil_training_yolo(path_bobot_yolo: Path | str | None = None) ->
 
 def deteksi_kotak_wajah_pada_frame(frame_gambar) -> list[Any]:
     """
-    Menjalankan prediksi jaringan YOLOv8 hasil training mandiri pada satu frame gambar
+    Menjalankan prediksi jaringan YOLOv8 pada satu frame gambar
     menggunakan GPU RTX 4060 untuk menemukan kandidat koordinat kotak wajah.
     """
     global _MODEL_YOLO_TERLATIH
@@ -133,7 +133,7 @@ def prediksi_wajah_pada_frame(
 
 def prediksi_wajah_pada_video(path_file_video: str | Path) -> dict:
     """
-    Memproses file video frame demi frame menggunakan model YOLOv8 hasil training mandiri
+    Memproses file video frame demi frame menggunakan model YOLOv8
     dan merangkum seluruh koordinat wajah yang ditemukan ke dalam struktur dictionary.
     """
     waktu_mulai = time.time()

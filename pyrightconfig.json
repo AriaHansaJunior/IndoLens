@@ -1,12 +1,13 @@
 {
   "include": [
     ".",
-    "scratch",
     "training_python",
     "python"
   ],
   "extraPaths": [
     "training_python",
+    "training_python/01_training_model_yolo",
+    "training_python/02_training_dataset_wajah_aktor",
     "python"
   ]
 }

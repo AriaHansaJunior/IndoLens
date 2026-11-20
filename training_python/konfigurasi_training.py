@@ -1,6 +1,7 @@
-"""Konfigurasi terpusat path absolut, perangkat GPU RTX 4060, dan parameter training mandiri IndoLens."""
+"""Konfigurasi terpusat path absolut, perangkat GPU RTX 4060, dan parameter training IndoLens."""
 
 import os
+import sys
 from pathlib import Path
 import torch
 
@@ -13,7 +14,7 @@ FILE_ENV_LARAVEL = FOLDER_ROOT_PROYEK / ".env"
 # Menentukan lokasi penyimpanan foto aktor yang diunggah melalui halaman web Camp Laravel
 FOLDER_STORAGE_ACTOR_IMAGES_LARAVEL = FOLDER_ROOT_PROYEK / "storage" / "app" / "public" / "actor-images"
 
-# Menentukan lokasi konfigurasi arsitektur YOLOv8 polosan dan lokasi penyimpanan bobot hasil training mandiri
+# Menentukan lokasi konfigurasi arsitektur YOLOv8 dan lokasi penyimpanan bobot hasil training
 FOLDER_BOBOT_MODEL_AI = FOLDER_ROOT_PROYEK / "storage" / "app" / "ai" / "weights"
 FILE_ARSITEKTUR_YOLOV8_YAML = FOLDER_MODUL_PYTHON / "config" / "arsitektur_yolov8_wajah.yaml"
 FILE_BOBOT_HASIL_TRAINING_YOLO = FOLDER_BOBOT_MODEL_AI / "hasil_training_yolov8_wajah.pt"
@@ -56,8 +57,8 @@ NILAI_SEED_ACAK = 42
 JUMLAH_EPOCH_TRAINING_YOLO = 80
 BATAS_PATIENCE_EARLY_STOPPING_YOLO = 15
 UKURAN_GAMBAR_INPUT_YOLO = 640
-UKURAN_BATCH_TRAINING_YOLO = 16
-JUMLAH_WORKER_DATALOADER_YOLO = 2
+UKURAN_BATCH_TRAINING_YOLO = 8
+JUMLAH_WORKER_DATALOADER_YOLO = 0
 
 # Mengatur parameter Optimizer dan Cosine Learning Rate Scheduler untuk konvergensi bobot YOLOv8
 NAMA_OPTIMIZER_YOLO = "AdamW"
@@ -120,7 +121,7 @@ DAFTAR_KANDIDAT_TUNING_YOLO = [
 # 3. Menjaga keseimbangan antara ketajaman fitur biometrik wajah (tidak pecah seperti 64x64)
 #    dan kecepatan inferensi kamera real-time (tidak membebani memori GPU seperti 224x224 atau 512x512).
 UKURAN_RESOLUSI_WAJAH_FACENET = (160, 160)
-RASIO_MARGIN_CROP_WAJAH = 0.12
+RASIO_MARGIN_CROP_WAJAH = 0.04
 
 # Mengatur hyperparameter pelatihan FaceNet & Triplet Loss dari Epoch 0 beserta Early Stopping
 DIMENSI_VEKTOR_EMBEDDING_FACENET = 512
@@ -191,3 +192,127 @@ def pilih_perangkat_gpu_rtx_wajib(wajib_cuda: bool = True):
     }
 
     return indeks_gpu_terpilih, objek_device_pytorch, info_perangkat_gpu
+
+
+def _atur_mininterval_kelas_tqdm(kelas_tqdm, interval_progress_detik: float) -> bool:
+    """
+    Membatasi frekuensi pembaruan progress bar pada kelas TQDM target agar
+    aliran pesan IOPub Jupyter tetap ringan tanpa membuang log ringkasan epoch.
+    """
+    if kelas_tqdm is None:
+        return False
+
+    kelas_tqdm._interval_minimal_notebook_unlimited = float(interval_progress_detik)
+    if getattr(kelas_tqdm, "_sudah_diatur_notebook_unlimited", False):
+        return True
+
+    init_asli_tqdm = kelas_tqdm.__init__
+
+    def init_tqdm_dengan_batas_interval(self, *args, **kwargs):
+        # Mengambil batas interval terbaru dari atribut kelas lalu menerapkannya setelah inisialisasi
+        batas_interval = float(getattr(kelas_tqdm, "_interval_minimal_notebook_unlimited", 1.5))
+        if "mininterval" in kwargs and kwargs["mininterval"] is not None:
+            kwargs["mininterval"] = max(float(kwargs["mininterval"]), batas_interval)
+        init_asli_tqdm(self, *args, **kwargs)
+        if hasattr(self, "mininterval"):
+            self.mininterval = max(
+                float(getattr(self, "mininterval", 0.1) or 0.1),
+                batas_interval,
+            )
+
+    kelas_tqdm.__init__ = init_tqdm_dengan_batas_interval
+    kelas_tqdm._sudah_diatur_notebook_unlimited = True
+    return True
+
+
+def aktifkan_output_notebook_unlimited(
+    interval_progress_detik: float = 1.5,
+    interval_flush_detik: float = 0.5,
+) -> dict:
+    """
+    Mengatur aliran stdout/stderr Jupyter dan progress bar training agar sel
+    dengan ribuan baris epoch tidak terkena IOPub message rate exceeded.
+    """
+    os.environ["TQDM_MININTERVAL"] = str(float(interval_progress_detik))
+
+    berjalan_di_notebook = "ipykernel" in sys.modules
+    jumlah_stream_diatur = 0
+    for aliran_output in (sys.stdout, sys.stderr):
+        if aliran_output is not None and hasattr(aliran_output, "flush_interval"):
+            berjalan_di_notebook = True
+            aliran_output.flush_interval = max(
+                float(getattr(aliran_output, "flush_interval", 0.2) or 0.2),
+                float(interval_flush_detik),
+            )
+            jumlah_stream_diatur += 1
+
+    ultralytics_tqdm_diatur = False
+    if berjalan_di_notebook or "ultralytics" in sys.modules or "ultralytics.utils" in sys.modules:
+        try:
+            import ultralytics.utils as utilitas_ultralytics
+
+            ultralytics_tqdm_diatur = _atur_mininterval_kelas_tqdm(
+                getattr(utilitas_ultralytics, "TQDM", None),
+                interval_progress_detik,
+            )
+        except Exception:
+            ultralytics_tqdm_diatur = False
+
+    tqdm_standar_diatur = False
+    if berjalan_di_notebook or "tqdm" in sys.modules or "tqdm.std" in sys.modules:
+        try:
+            import tqdm.std as modul_tqdm_standar
+
+            tqdm_standar_diatur = _atur_mininterval_kelas_tqdm(
+                getattr(modul_tqdm_standar, "tqdm", None),
+                interval_progress_detik,
+            )
+        except Exception:
+            tqdm_standar_diatur = False
+
+    konfig_server_siap = False
+    path_konfig_server_jupyter = Path.home() / ".jupyter" / "jupyter_server_config.py"
+    baris_konfig_iopub_unlimited = (
+        "c.ZMQChannelsWebsocketConnection.iopub_data_rate_limit = 0",
+        "c.ZMQChannelsWebsocketConnection.iopub_msg_rate_limit = 0",
+        "c.ZMQChannelsWebsocketConnection.limit_rate = False",
+    )
+    try:
+        isi_konfig_saat_ini = (
+            path_konfig_server_jupyter.read_text(encoding="utf-8")
+            if path_konfig_server_jupyter.exists()
+            else ""
+        )
+        baris_belum_tertulis = [
+            baris for baris in baris_konfig_iopub_unlimited if baris not in isi_konfig_saat_ini
+        ]
+        if not baris_belum_tertulis:
+            konfig_server_siap = True
+        else:
+            path_konfig_server_jupyter.parent.mkdir(parents=True, exist_ok=True)
+            tambahan_konfig = (
+                "\n# Konfigurasi output unlimited otomatis untuk logging epoch IndoLens\n"
+                + "\n".join(baris_belum_tertulis)
+                + "\n"
+            )
+            path_konfig_server_jupyter.write_text(
+                isi_konfig_saat_ini + tambahan_konfig,
+                encoding="utf-8",
+            )
+            konfig_server_siap = True
+    except Exception:
+        konfig_server_siap = False
+
+    return {
+        "berjalan_di_notebook": berjalan_di_notebook,
+        "jumlah_stream_diatur": jumlah_stream_diatur,
+        "interval_flush_detik": float(interval_flush_detik),
+        "interval_progress_detik": float(interval_progress_detik),
+        "ultralytics_tqdm_diatur": ultralytics_tqdm_diatur,
+        "tqdm_standar_diatur": tqdm_standar_diatur,
+        "konfig_server_jupyter_unlimited": konfig_server_siap,
+    }
+
+
+# Mengaktifkan pengaturan output notebook unlimited secara otomatis saat modul konfigurasi dimuat
+aktifkan_output_notebook_unlimited()

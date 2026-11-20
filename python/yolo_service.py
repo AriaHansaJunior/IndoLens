@@ -1,5 +1,5 @@
 """
-Layanan Micro-Service FastAPI Deteksi Wajah YOLOv8 & Pengenalan Aktor FaceNet Mandiri.
+Layanan Micro-Service FastAPI Deteksi Wajah YOLOv8 & Pengenalan Aktor FaceNet.
 Memuat bobot hasil_training_yolov8_wajah.pt dan hasil_training_facenet_aktor.pth di GPU RTX 4060
 serta mencocokkan vektor embedding 512-D menggunakan jarak Euclidean dan batas ambang terkalibrasi.
 """
@@ -47,7 +47,7 @@ from recognition.embedding_matcher import (
     cari_kecocokan_aktor_terdekat,
 )
 
-# Menyimpan instance model hasil training mandiri dan database embedding referensi di memori
+# Menyimpan instance model hasil training dan database embedding referensi di memori
 MODEL_YOLO_AKTIF = None
 MODEL_FACENET_AKTIF = None
 KAMUS_EMBEDDING_AKTOR_AKTIF: dict = {}
@@ -104,9 +104,9 @@ def pastikan_model_hasil_training_siap() -> tuple[bool, str]:
             MODEL_YOLO_AKTIF = muat_model_hasil_training_yolo(FILE_BOBOT_HASIL_TRAINING_YOLO)
         if MODEL_FACENET_AKTIF is None:
             MODEL_FACENET_AKTIF = muat_model_hasil_training_facenet(FILE_BOBOT_HASIL_TRAINING_FACENET)
-        return True, "Model YOLOv8 dan FaceNet hasil training mandiri aktif di GPU."
+        return True, "Model YOLOv8 dan FaceNet aktif di GPU."
     except Exception as galat_muat:
-        return False, f"Gagal memuat bobot hasil training mandiri: {galat_muat}"
+        return False, f"Gagal memuat bobot model: {galat_muat}"
 
 
 def ekstrak_embedding_wajah_tahan_tolehan(potongan_wajah_bgr: np.ndarray) -> np.ndarray:
@@ -134,7 +134,7 @@ def ekstrak_embedding_wajah_tahan_tolehan(potongan_wajah_bgr: np.ndarray) -> np.
 @asynccontextmanager
 async def siklus_hidup_service(aplikasi: FastAPI):
     """
-    Memuat model YOLOv8 mandiri, FaceNet mandiri, dan database embedding referensi (.npy)
+    Memuat model YOLOv8, FaceNet, dan database embedding referensi (.npy)
     saat server dinyalakan agar inferensi kamera real-time berjalan tanpa jeda inisialisasi.
     """
     global KAMUS_EMBEDDING_AKTOR_AKTIF
@@ -143,7 +143,7 @@ async def siklus_hidup_service(aplikasi: FastAPI):
     print(f"[YOLO Service] Perangkat Komputasi Aktif: YOLO={perangkat_yolo} | FaceNet={perangkat_facenet}")
 
     siap, pesan_status = pastikan_model_hasil_training_siap()
-    print(f"[Pipeline Service] Status Model Mandiri: {pesan_status}")
+    print(f"[Pipeline Service] Status Model: {pesan_status}")
 
     KAMUS_EMBEDDING_AKTOR_AKTIF = muat_semua_database_embedding_aktor()
     print(
@@ -163,8 +163,8 @@ async def siklus_hidup_service(aplikasi: FastAPI):
 
 
 app = FastAPI(
-    title="IndoLens YOLOv8 & FaceNet Custom Recognition Service",
-    description="Real-time face detection, 512-D custom FaceNet embedding, and Euclidean matching",
+    title="IndoLens YOLOv8 & FaceNet Recognition Service",
+    description="Real-time face detection, 512-D FaceNet embedding, and Euclidean matching",
     version="2.0.0",
     lifespan=siklus_hidup_service,
 )
@@ -180,13 +180,13 @@ app.add_middleware(
 
 @app.get("/health")
 def periksa_kesehatan_service():
-    """Mengembalikan status kesiapan model hasil training mandiri dan jumlah aktor yang dimuat."""
+    """Mengembalikan status kesiapan model dan jumlah aktor yang dimuat."""
     siap, pesan_status = pastikan_model_hasil_training_siap()
     return {
         "status": "ready",
         "models_trained": siap,
         "models_message": pesan_status,
-        "service": "IndoLens Custom YOLOv8 + Custom FaceNet Recognition Service",
+        "service": "IndoLens YOLOv8 + FaceNet Recognition Service",
         "yolo_loaded": MODEL_YOLO_AKTIF is not None,
         "facenet_loaded": MODEL_FACENET_AKTIF is not None,
         "actors_loaded": len(KAMUS_EMBEDDING_AKTOR_AKTIF),
@@ -283,7 +283,7 @@ async def bersihkan_aktor_yatim_endpoint(request: Request):
 async def sinkronkan_embedding_aktor_endpoint(request: Request):
     """
     Menyinkronkan foto wajah aktor yang diunggah melalui halaman web Camp menjadi file .npy (512-D)
-    menggunakan model YOLOv8 dan FaceNet hasil training mandiri.
+    menggunakan model YOLOv8 dan FaceNet.
     """
     global KAMUS_EMBEDDING_AKTOR_AKTIF
     try:
@@ -342,7 +342,7 @@ async def sinkronkan_embedding_aktor_endpoint(request: Request):
             daftar_tidak_ditemukan.append(id_gambar)
             continue
 
-        deteksi_wajah = prediksi_wajah_pada_frame(gambar_bgr, rasio_margin_crop=0.12)
+        deteksi_wajah = prediksi_wajah_pada_frame(gambar_bgr, rasio_margin_crop=0.04)
         if not deteksi_wajah:
             daftar_tanpa_wajah.append(id_gambar)
             continue
@@ -501,8 +501,8 @@ def muat_ulang_semua_embedding_endpoint():
 @app.post("/detect")
 async def deteksi_dan_kenali_wajah_endpoint(request: Request):
     """
-    Menerima frame kamera dari browser, mendeteksi kotak wajah dengan YOLOv8 mandiri (margin 12%),
-    mengekstrak vektor embedding 512-D tahan-tolehan dengan FaceNet mandiri di GPU RTX 4060,
+    Menerima frame kamera dari browser, mendeteksi kotak wajah dengan YOLOv8 (margin 12%),
+    mengekstrak vektor embedding 512-D tahan-tolehan dengan FaceNet di GPU RTX 4060,
     dan mencari kecocokan aktor terdekat menggunakan Euclidean Distance.
     """
     waktu_mulai_total = time.perf_counter()
@@ -557,7 +557,7 @@ async def deteksi_dan_kenali_wajah_endpoint(request: Request):
     batas_ambang_aktif = ambil_batas_ambang_jarak_aktif()
 
     waktu_mulai_yolo = time.perf_counter()
-    daftar_deteksi_yolo = prediksi_wajah_pada_frame(gambar_bgr, rasio_margin_crop=0.12)
+    daftar_deteksi_yolo = prediksi_wajah_pada_frame(gambar_bgr, rasio_margin_crop=0.04)
     durasi_yolo_ms = round((time.perf_counter() - waktu_mulai_yolo) * 1000, 2)
 
     daftar_wajah_keluaran = []

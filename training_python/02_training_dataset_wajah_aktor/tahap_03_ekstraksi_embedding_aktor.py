@@ -1,4 +1,4 @@
-"""Tahap 03 (Dataset Aktor): Ekstraksi vektor reference embedding 512-D (.npy) memakai FaceNet mandiri."""
+"""Tahap 03 (Dataset Aktor): Ekstraksi vektor reference embedding 512-D (.npy) memakai FaceNet."""
 
 import json
 import shutil
@@ -60,6 +60,8 @@ def buat_database_embedding_referensi(
     serta menyimpannya ke folder python/embeddings/<slug_aktor>/<image_id>.npy dan manifest.json
     untuk digunakan oleh evaluasi Tahap 04 maupun pengenalan kamera real-time.
     """
+    # Mengaktifkan mode output Jupyter unlimited sebelum mengekstrak seluruh vektor embedding referensi 512-D
+    konfig.aktifkan_output_notebook_unlimited()
     konfig.pastikan_semua_folder_tersedia()
     path_manifest_crop = konfig.FOLDER_CROP_WAJAH_160X160 / "manifest_preprocessing_wajah.json"
     if not path_manifest_crop.exists():
@@ -69,11 +71,11 @@ def buat_database_embedding_referensi(
         )
 
     _, _, info_perangkat_gpu = konfig.pilih_perangkat_gpu_rtx_wajib(wajib_cuda=True)
-    model_facenet_mandiri = muat_model_hasil_training_facenet(path_bobot_facenet)
+    model_facenet = muat_model_hasil_training_facenet(path_bobot_facenet)
     manifest_crop = json.loads(path_manifest_crop.read_text(encoding="utf-8"))
 
     print("=" * 78)
-    print("  TAHAP 03: EKSTRAKSI DATABASE EMBEDDING REFERENSI 512-D (FACENET MANDIRI)")
+    print("  TAHAP 03: EKSTRAKSI DATABASE EMBEDDING REFERENSI 512-D (FACENET)")
     print("=" * 78)
     print(f"[*] Perangkat Komputasi GPU     : {info_perangkat_gpu['nama_gpu']}")
     print(f"[*] Bobot FaceNet Digunakan     : {path_bobot_facenet}")
@@ -105,7 +107,7 @@ def buat_database_embedding_referensi(
             array_ternormalisasi = np.load(str(path_tensor_npy)).astype(np.float32)
             vektor_embedding_512d = ekstrak_vektor_embedding_wajah(
                 array_ternormalisasi,
-                model_facenet_aktif=model_facenet_mandiri,
+                model_facenet_aktif=model_facenet,
                 sudah_ternormalisasi=True,
             )
 

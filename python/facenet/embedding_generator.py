@@ -1,4 +1,4 @@
-"""Modul ekstraksi vektor embedding 512-D menggunakan JaringanFaceNetMandiri hasil training sendiri."""
+"""Modul ekstraksi vektor embedding 512-D menggunakan JaringanFaceNet."""
 
 from pathlib import Path
 import numpy as np
@@ -11,7 +11,7 @@ from config.dataset import (
     BATAS_AMBANG_JARAK_EUCLIDEAN,
     UKURAN_RESOLUSI_WAJAH_FACENET,
 )
-from facenet.arsitektur_facenet_manual import JaringanFaceNetMandiri
+from facenet.arsitektur_facenet_manual import JaringanFaceNet
 from utils.image_loader import baca_file_gambar_ke_array, ubah_format_bgr_ke_rgb
 from utils.image_preprocessor import (
     ubah_ukuran_piksel_wajah,
@@ -19,8 +19,8 @@ from utils.image_preprocessor import (
     ubah_array_ke_tensor_chw,
 )
 
-# Menyimpan instance model FaceNet hasil training mandiri dan objek device GPU di memori
-_MODEL_FACENET_TERLATIH: JaringanFaceNetMandiri | None = None
+# Menyimpan instance model FaceNet hasil training dan objek device GPU di memori
+_MODEL_FACENET_TERLATIH: JaringanFaceNet | None = None
 _PERANGKAT_KOMPUTASI_FACENET: torch.device | None = None
 
 
@@ -49,11 +49,11 @@ def pilih_perangkat_komputasi_facenet() -> torch.device:
 
 def muat_model_hasil_training_facenet(
     path_bobot_facenet: Path | str | None = None,
-) -> JaringanFaceNetMandiri:
+) -> JaringanFaceNet:
     """
     Memuat bobot hasil_training_facenet_aktor.pth dari folder storage/app/ai/weights/ ke dalam
-    JaringanFaceNetMandiri (torch.nn.Module) yang dilatih dari Epoch 0 dengan Triplet Margin Loss.
-    Menolak pemakaian model pre-trained luar apabila file hasil training sendiri belum tersedia.
+    JaringanFaceNet (torch.nn.Module) yang dilatih dari Epoch 0 dengan Triplet Margin Loss.
+    Menolak pemakaian model pre-trained apabila file hasil training belum tersedia.
     """
     global _MODEL_FACENET_TERLATIH
 
@@ -63,21 +63,32 @@ def muat_model_hasil_training_facenet(
     path_target = Path(path_bobot_facenet) if path_bobot_facenet else Path(FILE_BOBOT_HASIL_TRAINING_FACENET)
     if not path_target.exists():
         raise FileNotFoundError(
-            f"Bobot hasil training mandiri FaceNet belum ditemukan di: {path_target}\n"
+            f"Bobot hasil training FaceNet belum ditemukan di: {path_target}\n"
             "Jalankan Notebook_02_Training_Dataset_Wajah_Aktor.ipynb pada folder "
             "training_python/02_training_dataset_wajah_aktor terlebih dahulu."
         )
 
     perangkat_aktif = pilih_perangkat_komputasi_facenet()
-    jaringan_facenet = JaringanFaceNetMandiri(dimensi_embedding=DIMENSI_EMBEDDING_FACENET)
+    jaringan_facenet = JaringanFaceNet(dimensi_embedding=DIMENSI_EMBEDDING_FACENET)
 
     data_checkpoint = torch.load(str(path_target), map_location=perangkat_aktif, weights_only=False)
-    if isinstance(data_checkpoint, dict) and "state_dict_model" in data_checkpoint:
-        jaringan_facenet.load_state_dict(data_checkpoint["state_dict_model"])
-    elif isinstance(data_checkpoint, dict) and "model_state_dict" in data_checkpoint:
-        jaringan_facenet.load_state_dict(data_checkpoint["model_state_dict"])
-    else:
-        jaringan_facenet.load_state_dict(data_checkpoint)
+    state_dict_target = (
+        data_checkpoint["state_dict_model"]
+        if isinstance(data_checkpoint, dict) and "state_dict_model" in data_checkpoint
+        else (
+            data_checkpoint["model_state_dict"]
+            if isinstance(data_checkpoint, dict) and "model_state_dict" in data_checkpoint
+            else data_checkpoint
+        )
+    )
+    try:
+        jaringan_facenet.load_state_dict(state_dict_target)
+    except RuntimeError as galat_dimensi:
+        raise RuntimeError(
+            "Arsitektur JaringanFaceNet (Landmark 3x3 + GDConv 5x5) telah diperbarui. "
+            "Jalankan ulang Tahap 02, Tahap 03, dan Tahap 04 pada Notebook_02_Training_Dataset_Wajah_Aktor.ipynb "
+            f"untuk memperbarui file bobot {path_target.name}. Detail: {galat_dimensi}"
+        ) from galat_dimensi
 
     jaringan_facenet.to(perangkat_aktif)
     jaringan_facenet.eval()
@@ -88,12 +99,12 @@ def muat_model_hasil_training_facenet(
 
 def ekstrak_vektor_embedding_wajah(
     input_citra_wajah,
-    model_facenet_aktif: JaringanFaceNetMandiri | None = None,
+    model_facenet_aktif: JaringanFaceNet | None = None,
     sudah_ternormalisasi: bool = False,
 ) -> np.ndarray:
     """
     Mengubah potongan gambar wajah (file path, array BGR/RGB, atau tensor 160x160 ternormalisasi)
-    menjadi vektor embedding 512-D ternormalisasi L2 (float32) menggunakan JaringanFaceNetMandiri di GPU RTX 4060.
+    menjadi vektor embedding 512-D ternormalisasi L2 (float32) menggunakan JaringanFaceNet di GPU RTX 4060.
     """
     model_aktif = model_facenet_aktif or muat_model_hasil_training_facenet()
     perangkat_aktif = next(model_aktif.parameters()).device

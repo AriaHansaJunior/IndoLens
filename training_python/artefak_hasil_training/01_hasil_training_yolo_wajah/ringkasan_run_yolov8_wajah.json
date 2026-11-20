@@ -1,0 +1,44 @@
+{
+  "nama_eksperimen": "run_yolov8_wajah",
+  "status_training": "berhasil",
+  "pretrained_digunakan": false,
+  "info_perangkat_gpu": {
+    "indeks_cuda": 0,
+    "device_pytorch": "cuda:0",
+    "nama_gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "vram_gb": 8.0,
+    "catatan_task_manager": "Tampil sebagai GPU 1 di Windows Task Manager (GPU 0 adalah Intel UHD Graphics)"
+  },
+  "path_arsitektur_yaml": "C:\\laragon\\www\\IndoLens\\python\\config\\arsitektur_yolov8_wajah.yaml",
+  "path_bobot_eksperimen": "C:\\laragon\\www\\IndoLens\\training_python\\artefak_hasil_training\\01_hasil_training_yolo_wajah\\run_yolov8_wajah\\weights\\best.pt",
+  "path_bobot_hasil_training_yolo": "C:\\laragon\\www\\IndoLens\\storage\\app\\ai\\weights\\hasil_training_yolov8_wajah.pt",
+  "folder_artefak_run_yolo": "C:\\laragon\\www\\IndoLens\\training_python\\artefak_hasil_training\\01_hasil_training_yolo_wajah\\run_yolov8_wajah",
+  "durasi_training_detik": 10345.93,
+  "parameter_tuning_yolo": {
+    "jumlah_epoch_maksimal": 80,
+    "batas_patience_early_stopping": 15,
+    "ukuran_gambar_input": 640,
+    "ukuran_batch": 8,
+    "nama_optimizer": "AdamW",
+    "gunakan_cosine_lr": true,
+    "laju_belajar_awal": 0.001,
+    "laju_belajar_akhir": 0.01,
+    "bobot_loss_box": 7.5,
+    "bobot_loss_cls": 0.5,
+    "bobot_loss_dfl": 1.5,
+    "derajat_rotasi": 10.0,
+    "skala_zoom": 0.5,
+    "flip_horizontal": 0.5,
+    "mosaic": 1.0
+  },
+  "metrik_hasil_training": {
+    "jumlah_epoch_selesai": 80,
+    "epoch_terbaik": 70,
+    "map50_terbaik": 0.6464,
+    "map50_95_terbaik": 0.4229,
+    "precision_akhir": 0.9373,
+    "recall_akhir": 0.642,
+    "train_box_loss_akhir": 1.0731,
+    "val_box_loss_akhir": 1.2794
+  }
+}

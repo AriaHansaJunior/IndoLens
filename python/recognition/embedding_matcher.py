@@ -111,14 +111,70 @@ def bandingkan_dua_vektor_embedding(vektor_input: np.ndarray, vektor_target: np.
     return hitung_jarak_euclidean(vektor_input, vektor_target)
 
 
+def hitung_jarak_gabungan_per_aktor(
+    vektor_wajah_input: np.ndarray,
+    daftar_embedding_aktor: list[dict] | np.ndarray,
+    jumlah_topk: int = 3,
+    kecualikan_file_npy: set[str] | None = None,
+) -> float | None:
+    """
+    Menghitung skor jarak Euclidean gabungan (50% jarak ke centroid L2 aktor + 50% rata-rata
+    Top-K jarak terdekat) agar satu foto outlier tidak memicu salah deteksi wajah Unknown.
+    """
+    kumpulan_vektor: list[np.ndarray] = []
+    daftar_jarak_individu: list[float] = []
+
+    if isinstance(daftar_embedding_aktor, list):
+        for item_ref in daftar_embedding_aktor:
+            if isinstance(item_ref, dict):
+                nama_file = str(item_ref.get("file", ""))
+                if kecualikan_file_npy and nama_file in kecualikan_file_npy:
+                    continue
+                vektor_ref = np.asarray(item_ref["embedding"], dtype=np.float32).flatten()
+            else:
+                vektor_ref = np.asarray(item_ref, dtype=np.float32).flatten()
+
+            kumpulan_vektor.append(vektor_ref)
+            daftar_jarak_individu.append(hitung_jarak_euclidean(vektor_wajah_input, vektor_ref))
+    else:
+        vektor_ref = np.asarray(daftar_embedding_aktor, dtype=np.float32).flatten()
+        kumpulan_vektor.append(vektor_ref)
+        daftar_jarak_individu.append(hitung_jarak_euclidean(vektor_wajah_input, vektor_ref))
+
+    if not kumpulan_vektor:
+        return None
+
+    if len(kumpulan_vektor) == 1:
+        return float(daftar_jarak_individu[0])
+
+    # Membentuk vektor pusat (centroid) ternormalisasi L2 dari seluruh foto referensi aktor
+    matriks_vektor = np.stack(kumpulan_vektor, axis=0)
+    vektor_centroid = np.mean(matriks_vektor, axis=0)
+    norma_centroid = float(np.linalg.norm(vektor_centroid))
+    if norma_centroid > 0.0:
+        vektor_centroid = vektor_centroid / norma_centroid
+
+    jarak_ke_centroid = hitung_jarak_euclidean(vektor_wajah_input, vektor_centroid)
+    daftar_jarak_individu.sort()
+    k_efektif = min(max(1, int(jumlah_topk)), len(daftar_jarak_individu))
+    rata_jarak_topk = float(np.mean(daftar_jarak_individu[:k_efektif]))
+    kuantil_25_jarak = float(np.percentile(daftar_jarak_individu, 25))
+
+    return float((0.45 * jarak_ke_centroid) + (0.35 * rata_jarak_topk) + (0.20 * kuantil_25_jarak))
+
+
 def cari_kecocokan_aktor_terdekat(
     vektor_wajah_input: np.ndarray,
     kamus_semua_embedding_aktor: dict,
     batas_ambang_jarak: float = BATAS_AMBANG_JARAK_EUCLIDEAN,
+    kecualikan_file_npy: set[str] | None = None,
+    selisih_margin_terdekat: float = 0.06,
+    jumlah_topk: int = 3,
 ) -> dict:
     """
-    Mencari jarak Euclidean paling minimum antara vektor_wajah_input terhadap seluruh embedding referensi aktor,
-    lalu memverifikasi apakah jarak minimum tersebut berada di bawah batas_ambang_jarak (threshold).
+    Mencari aktor dengan skor jarak Euclidean gabungan (centroid + Top-K) paling minimum,
+    memverifikasi terhadap batas_ambang_jarak serta selisih jarak terhadap kandidat kedua
+    agar wajah asing yang berada di tengah-tengah dua aktor ditolak sebagai Tidak Dikenali.
     """
     if vektor_wajah_input is None or len(vektor_wajah_input) == 0:
         return klasifikasikan_hasil_pencocokan_wajah(None, float("inf"), False)
@@ -126,13 +182,22 @@ def cari_kecocokan_aktor_terdekat(
     if not kamus_semua_embedding_aktor:
         return klasifikasikan_hasil_pencocokan_wajah(None, float("inf"), False)
 
-    semua_jarak = hitung_semua_jarak_ke_database(vektor_wajah_input, kamus_semua_embedding_aktor)
-    if not semua_jarak:
+    daftar_skor_aktor: list[tuple[float, str]] = []
+    for kunci_aktor, daftar_item in kamus_semua_embedding_aktor.items():
+        skor_jarak_aktor = hitung_jarak_gabungan_per_aktor(
+            vektor_wajah_input,
+            daftar_item,
+            jumlah_topk=jumlah_topk,
+            kecualikan_file_npy=kecualikan_file_npy,
+        )
+        if skor_jarak_aktor is not None:
+            daftar_skor_aktor.append((skor_jarak_aktor, kunci_aktor))
+
+    if not daftar_skor_aktor:
         return klasifikasikan_hasil_pencocokan_wajah(None, float("inf"), False)
 
-    item_terdekat = min(semua_jarak, key=lambda x: x["distance"])
-    kunci_aktor_terbaik = item_terdekat["actor"]
-    jarak_euclidean_minimum = float(item_terdekat["distance"])
+    daftar_skor_aktor.sort(key=lambda item: item[0])
+    jarak_euclidean_minimum, kunci_aktor_terbaik = daftar_skor_aktor[0]
 
     nama_tampilan_aktor = kunci_aktor_terbaik
     daftar_milik_aktor = kamus_semua_embedding_aktor.get(kunci_aktor_terbaik, [])
@@ -145,6 +210,13 @@ def cari_kecocokan_aktor_terdekat(
         jarak_euclidean_minimum,
         batas_ambang_jarak=batas_ambang_jarak,
     )
+
+    # Memastikan kandidat terbaik unggul jelas dari kandidat kedua bila terdapat lebih dari 1 aktor
+    if lolos_ambang and len(daftar_skor_aktor) >= 2 and selisih_margin_terdekat > 0.0:
+        jarak_kandidat_kedua = daftar_skor_aktor[1][0]
+        if (jarak_kandidat_kedua - jarak_euclidean_minimum) < float(selisih_margin_terdekat):
+            lolos_ambang = False
+
     return klasifikasikan_hasil_pencocokan_wajah(
         nama_tampilan_aktor,
         jarak_euclidean_minimum,

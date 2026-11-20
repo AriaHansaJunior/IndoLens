@@ -1,4 +1,4 @@
-"""Arsitektur Jaringan Saraf FaceNet Mandiri (torch.nn.Module) dan Fungsi Triplet Margin Loss dari nol."""
+"""Arsitektur Jaringan Saraf FaceNet (torch.nn.Module) dan Fungsi Triplet Margin Loss."""
 
 import torch
 import torch.nn as nn
@@ -130,9 +130,9 @@ class BlokReduksiSpasial(nn.Module):
         return torch.cat([bagian_konvolusi, bagian_pooling], dim=1)
 
 
-class JaringanFaceNetMandiri(nn.Module):
+class JaringanFaceNet(nn.Module):
     """
-    Membangun arsitektur jaringan saraf FaceNet mandiri dari nol menggunakan PyTorch (tanpa bobot pre-trained)
+    Membangun arsitektur jaringan saraf FaceNet menggunakan PyTorch (tanpa bobot pre-trained)
     untuk memetakan citra wajah RGB berukuran 160x160 piksel menjadi vektor embedding 512-D ternormalisasi L2.
 
     Alur reduksi resolusi spasial dari input 160x160 piksel:
@@ -188,10 +188,27 @@ class JaringanFaceNetMandiri(nn.Module):
             BlokInceptionResidual(512, kanal_cabang_dalam=96, skala_residual=0.20),
         )
 
-        # Merangkum peta fitur 5x5 menjadi vektor 512-D dan menstabilkannya dengan BatchNorm1d
+        # Mengekstrak tata letak spasial regional 3x3 (alis/mata/kacamata, hidung/pipi, mulut/dagu) dari peta 10x10
+        self.pool_landmark_3x3 = nn.AdaptiveAvgPool2d((3, 3))
+        self.reduksi_landmark_3x3 = BlokKonvolusiDasar(
+            384, 64, ukuran_kernel=1, langkah_stride=1, ukuran_padding=0
+        )
+
+        # Mengekstrak bobot posisi spasial 5x5 menggunakan Depthwise Separable Convolution (GDConv)
+        self.pool_spasial_5x5 = nn.AdaptiveAvgPool2d((5, 5))
+        self.konvolusi_spasial_5x5 = nn.Sequential(
+            nn.Conv2d(512, 512, kernel_size=5, stride=1, padding=0, groups=512, bias=False),
+            nn.BatchNorm2d(512, eps=0.001, momentum=0.1),
+            nn.ReLU(inplace=True),
+        )
+
+        # Merangkum konteks global 1x1 lalu menggabungkan fitur landmark 3x3 (576-D) + GDConv (512-D) + Global (512-D)
         self.perata_rata_global = nn.AdaptiveAvgPool2d((1, 1))
         self.lapisan_dropout = nn.Dropout(p=peluang_dropout)
-        self.lapisan_linear_embedding = nn.Linear(512, self.dimensi_embedding, bias=False)
+        self.proyeksi_fitur_gabungan = nn.Linear(576 + 512 + 512, 768, bias=False)
+        self.normalisasi_batch_proyeksi = nn.BatchNorm1d(768, eps=0.001, momentum=0.1)
+        self.aktivasi_proyeksi = nn.ReLU(inplace=True)
+        self.lapisan_linear_embedding = nn.Linear(768, self.dimensi_embedding, bias=False)
         self.normalisasi_batch_embedding = nn.BatchNorm1d(self.dimensi_embedding, eps=0.001, momentum=0.1)
 
         self.inisialisasi_bobot_kaiming()
@@ -218,14 +235,24 @@ class JaringanFaceNetMandiri(nn.Module):
         peta_fitur = self.tahap_1_stem_awal(tensor_wajah_chw)
         peta_fitur = self.tahap_2_fitur_40x40(peta_fitur)
         peta_fitur = self.tahap_3_fitur_20x20(peta_fitur)
-        peta_fitur = self.tahap_4_fitur_10x10(peta_fitur)
-        peta_fitur = self.tahap_5_fitur_5x5(peta_fitur)
+        peta_10x10 = self.tahap_4_fitur_10x10(peta_fitur)
+        peta_5x5 = self.tahap_5_fitur_5x5(peta_10x10)
 
-        vektor_rata_global = self.perata_rata_global(peta_fitur)
-        vektor_datar = torch.flatten(vektor_rata_global, 1)
-        vektor_datar = self.lapisan_dropout(vektor_datar)
+        # Mengambil deskriptor landmark regional 3x3 (576-D), deskriptor spasial GDConv 5x5 (512-D), dan global (512-D)
+        fitur_landmark_3x3 = torch.flatten(self.reduksi_landmark_3x3(self.pool_landmark_3x3(peta_10x10)), 1)
+        fitur_gdconv_5x5 = torch.flatten(self.konvolusi_spasial_5x5(self.pool_spasial_5x5(peta_5x5)), 1)
+        fitur_global_1x1 = torch.flatten(self.perata_rata_global(peta_5x5), 1)
 
-        vektor_mentah = self.lapisan_linear_embedding(vektor_datar)
+        vektor_gabungan = torch.cat([fitur_landmark_3x3, fitur_gdconv_5x5, fitur_global_1x1], dim=1)
+        vektor_gabungan = self.lapisan_dropout(vektor_gabungan)
+
+        vektor_proyeksi = self.proyeksi_fitur_gabungan(vektor_gabungan)
+        if vektor_proyeksi.shape[0] > 1 or not self.training:
+            vektor_proyeksi = self.normalisasi_batch_proyeksi(vektor_proyeksi)
+        vektor_proyeksi = self.aktivasi_proyeksi(vektor_proyeksi)
+        vektor_proyeksi = self.lapisan_dropout(vektor_proyeksi)
+
+        vektor_mentah = self.lapisan_linear_embedding(vektor_proyeksi)
         if vektor_mentah.shape[0] > 1 or not self.training:
             vektor_mentah = self.normalisasi_batch_embedding(vektor_mentah)
 

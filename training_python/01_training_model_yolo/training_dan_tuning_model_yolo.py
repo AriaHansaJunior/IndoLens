@@ -93,6 +93,26 @@ def ekstrak_ringkasan_metrik_training_yolo(folder_hasil_run: Path) -> dict:
     return ringkasan_metrik
 
 
+def validasi_kelengkapan_split_yolo(folder_split_yolo: Path):
+    """
+    Memastikan folder split_yolo/labels/{train,val} memiliki pasangan file label .txt wajah yang utuh
+    sebelum pelatihan YOLOv8 dijalankan agar tidak melatih data validasi tanpa kotak wajah (mAP = 0).
+    """
+    for nama_split in ["train", "val"]:
+        folder_img = folder_split_yolo / "images" / nama_split
+        folder_lbl = folder_split_yolo / "labels" / nama_split
+        daftar_img = [f for f in folder_img.iterdir() if f.is_file()] if folder_img.exists() else []
+        daftar_lbl = [f for f in folder_lbl.iterdir() if f.is_file() and f.suffix.lower() == ".txt"] if folder_lbl.exists() else []
+        label_berisi = [f for f in daftar_lbl if f.stat().st_size > 0]
+
+        if len(daftar_img) == 0 or len(daftar_lbl) < len(daftar_img) or len(label_berisi) == 0:
+            raise RuntimeError(
+                f"Data split '{nama_split}' belum lengkap atau gagal tersalin ({len(daftar_img)} gambar, "
+                f"{len(daftar_lbl)} label, {len(label_berisi)} berisi kotak wajah).\n"
+                "Jalankan ulang Sel Tahap 01 (siapkan_dan_split_dataset_yolo) hingga selesai tanpa error sebelum melatih YOLOv8."
+            )
+
+
 def latih_model_yolov8_dari_nol(
     path_data_yaml: Path = konfig.FILE_KONFIGURASI_DATA_YOLO_YAML,
     path_arsitektur_yaml: Path = konfig.FILE_ARSITEKTUR_YOLOV8_YAML,
@@ -107,7 +127,7 @@ def latih_model_yolov8_dari_nol(
     bobot_loss_box: float = konfig.BOBOT_LOSS_KOTAK_BBOX_YOLO,
     bobot_loss_cls: float = konfig.BOBOT_LOSS_KLASIFIKASI_KELAS_YOLO,
     bobot_loss_dfl: float = konfig.BOBOT_LOSS_DFL_TEPI_KOTAK_YOLO,
-    nama_folder_eksperimen: str = "run_yolov8_wajah_mandiri",
+    nama_folder_eksperimen: str = "run_yolov8_wajah",
     salin_ke_bobot_utama: bool = True,
 ) -> dict:
     """
@@ -117,6 +137,8 @@ def latih_model_yolov8_dari_nol(
     Menyimpan bobot terbaik ke storage/app/ai/weights/hasil_training_yolov8_wajah.pt untuk dipakai oleh
     modul deteksi wajah pada Tahap 03 dan layanan kamera real-time pada python/yolo_service.py.
     """
+    # Mengaktifkan output Jupyter unlimited agar seluruh epoch training tampil utuh tanpa IOPub limit
+    konfig.aktifkan_output_notebook_unlimited()
     konfig.pastikan_semua_folder_tersedia()
 
     if not Path(path_data_yaml).exists():
@@ -125,6 +147,7 @@ def latih_model_yolov8_dari_nol(
             "Jalankan Tahap 01 (siapkan_dan_split_dataset_yolo) terlebih dahulu."
         )
 
+    validasi_kelengkapan_split_yolo(Path(path_data_yaml).parent)
     indeks_gpu_cuda, _, info_perangkat_gpu = konfig.pilih_perangkat_gpu_rtx_wajib(wajib_cuda=True)
 
     print("=" * 78)
@@ -196,7 +219,7 @@ def latih_model_yolov8_dari_nol(
         )
 
     if salin_ke_bobot_utama:
-        # Menyalin bobot hasil training mandiri ke lokasi penyimpanan utama untuk dipakai Tahap 03 dan runtime web
+        # Menyalin bobot hasil training ke lokasi penyimpanan utama untuk dipakai pada tahap selanjutnya dan runtime web
         konfig.FILE_BOBOT_HASIL_TRAINING_YOLO.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(sumber_bobot_terpilih, konfig.FILE_BOBOT_HASIL_TRAINING_YOLO)
 
@@ -241,7 +264,7 @@ def latih_model_yolov8_dari_nol(
         path_utama_json.write_text(json.dumps(data_hasil_training_yolo, indent=2), encoding="utf-8")
 
     print("\n" + "=" * 78)
-    print("  PELATIHAN MANDIRI YOLOV8 SELESAI")
+    print("  PELATIHAN MODEL YOLOV8 SELESAI")
     print("=" * 78)
     print(f"[OK] Bobot terbaik disimpan ke : {konfig.FILE_BOBOT_HASIL_TRAINING_YOLO}")
     print(f"[OK] Epoch terbaik / selesai   : Epoch {ringkasan_metrik['epoch_terbaik']} dari {ringkasan_metrik['jumlah_epoch_selesai']}")
@@ -261,6 +284,8 @@ def jalankan_tuning_hyperparameter_yolo(
     Menjalankan eksperimen perbandingan beberapa kombinasi hyperparameter YOLOv8 (misal AdamW vs SGD, lr0, bobot loss),
     memilih skenario dengan skor mAP50-95 tertinggi, dan menyalin bobot terbaiknya ke hasil_training_yolov8_wajah.pt.
     """
+    # Memastikan aliran output Jupyter unlimited aktif selama eksperimen banyak skenario tuning
+    konfig.aktifkan_output_notebook_unlimited()
     kandidat_uji = daftar_kandidat_skenario or konfig.DAFTAR_KANDIDAT_TUNING_YOLO
     daftar_hasil_skenario = []
     skenario_terbaik = None
@@ -318,6 +343,8 @@ def evaluasi_model_yolo_pada_split_test(
             "Jalankan latih_model_yolov8_dari_nol() pada Tahap 02 terlebih dahulu."
         )
 
+    # Mengaktifkan output Jupyter unlimited sebelum menjalankan validasi split test YOLOv8
+    konfig.aktifkan_output_notebook_unlimited()
     indeks_gpu_cuda, _, info_perangkat_gpu = konfig.pilih_perangkat_gpu_rtx_wajib(wajib_cuda=True)
     model_yolo_terlatih = YOLO(str(path_bobot_yolo))
 

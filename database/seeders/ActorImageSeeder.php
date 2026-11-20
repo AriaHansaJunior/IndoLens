@@ -2,26 +2,48 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\Actor;
 use App\Models\ActorImage;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ActorImageSeeder extends Seeder
 {
     /**
-     * Seed Bayu Eko Moektito's 10 face reference images sequentially from ID #1.
+     * Mendaftarkan seluruh foto wajah aktor pada folder storage/app/public/actor-images/{id}-{slug}/
+     * ke tabel actor_images MySQL tanpa menduplikasi data yang sudah tersimpan.
      */
     public function run(): void
     {
-        for ($i = 1; $i <= 10; $i++) {
-            $imagePath = sprintf('actor-images/1-bayu-eko-moektito/bayu-eko-moektito-%02d.jpg', $i);
+        $disk = Storage::disk('public');
 
-            ActorImage::updateOrCreate(
-                ['id' => $i],
-                [
-                    'actor_id' => 1,
-                    'image' => $imagePath,
-                ]
-            );
+        foreach (Actor::orderBy('id')->get() as $actor) {
+            $slug = Str::slug($actor->full_name);
+            $dirName = "actor-images/{$actor->id}-{$slug}";
+            if (!$disk->exists($dirName)) {
+                continue;
+            }
+
+            $files = $disk->files($dirName);
+            sort($files);
+
+            foreach ($files as $relativePath) {
+                $basename = basename($relativePath);
+                if (str_starts_with(strtolower($basename), 'profile-')) {
+                    continue;
+                }
+
+                $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+                if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'avif'], true)) {
+                    continue;
+                }
+
+                ActorImage::firstOrCreate([
+                    'actor_id' => $actor->id,
+                    'image' => $relativePath,
+                ]);
+            }
         }
     }
 }

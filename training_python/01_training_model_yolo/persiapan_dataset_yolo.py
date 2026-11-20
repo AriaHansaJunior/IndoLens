@@ -1,7 +1,9 @@
 """Tahap 01: Persiapan, validasi label bounding box, dan pembagian dataset YOLOv8 (train/val/test)."""
 
+import os
 import random
 import shutil
+import stat
 import sys
 from pathlib import Path
 
@@ -140,15 +142,27 @@ def kumpulkan_data_negatif_bukan_wajah(folder_raw_negatif: Path) -> list[dict]:
     return daftar_sampel_negatif
 
 
+def pastikan_file_dapat_ditulis(path_target: Path):
+    """Melepas atribut read-only pada file agar dapat disalin, ditimpa, atau dihapus di Windows."""
+    if path_target.exists():
+        try:
+            os.chmod(path_target, stat.S_IWRITE | stat.S_IREAD)
+        except Exception:
+            pass
+
+
 def bersihkan_dan_buat_folder_split_yolo(folder_split_yolo: Path):
     """
-    Menghapus isi folder split_yolo lama dan membentuk ulang struktur folder images/{train,val,test}
-    serta labels/{train,val,test} sebelum pengisian dataset baru.
+    Melepas atribut read-only bila ada, menghapus isi folder split_yolo lama secara tuntas,
+    lalu membentuk ulang struktur folder images/{train,val,test} dan labels/{train,val,test}.
     """
     for nama_subfolder in ["images", "labels"]:
         target_subfolder = folder_split_yolo / nama_subfolder
         if target_subfolder.exists():
-            shutil.rmtree(target_subfolder, ignore_errors=True)
+            for item_path in target_subfolder.rglob("*"):
+                if item_path.is_file():
+                    pastikan_file_dapat_ditulis(item_path)
+            shutil.rmtree(target_subfolder)
 
     for nama_split in ["train", "val", "test"]:
         (folder_split_yolo / "images" / nama_split).mkdir(parents=True, exist_ok=True)
@@ -215,7 +229,10 @@ def salin_sampel_ke_folder_split(
         path_gambar_tujuan = folder_gambar_tujuan / f"{nama_dasar_unik}{path_asal.suffix.lower()}"
         path_label_tujuan = folder_label_tujuan / f"{nama_dasar_unik}.txt"
 
-        shutil.copy2(path_asal, path_gambar_tujuan)
+        # Menyalin isi piksel file tanpa membawa atribut read-only dari arsip sumber
+        pastikan_file_dapat_ditulis(path_gambar_tujuan)
+        shutil.copyfile(path_asal, path_gambar_tujuan)
+        pastikan_file_dapat_ditulis(path_gambar_tujuan)
         path_label_tujuan.write_text(data_sampel["isi_label_yolo"], encoding="utf-8")
 
         if data_sampel["tipe_sampel"] == "positif_wajah":
@@ -264,6 +281,8 @@ def siapkan_dan_split_dataset_yolo(
     membagi secara proporsional ke dalam split train/val/test, serta menghasilkan file data_yolo_wajah.yaml
     yang akan dikirimkan ke tahap_02_training_yolo_wajah.py.
     """
+    # Mengaktifkan mode output Jupyter unlimited sebelum mencetak progres persiapan ribuan file dataset
+    konfig.aktifkan_output_notebook_unlimited()
     konfig.pastikan_semua_folder_tersedia()
 
     print("=" * 78)

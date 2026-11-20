@@ -1,4 +1,4 @@
-"""Unit test otomatis untuk memverifikasi seluruh arsitektur mandiri (Zero Pre-Trained) IndoLens."""
+"""Unit test otomatis untuk memverifikasi arsitektur YOLOv8, FaceNet, Triplet Loss, dan evaluasi F1-Score."""
 
 import shutil
 import sys
@@ -27,7 +27,7 @@ from utils.image_preprocessor import (
     proses_lengkap_citra_wajah_ke_tensor,
 )
 from facenet.arsitektur_facenet_manual import (
-    JaringanFaceNetMandiri,
+    JaringanFaceNet,
     FungsiTripletMarginLoss,
 )
 from facenet.embedding_generator import (
@@ -43,8 +43,8 @@ from evaluation.confusion_matrix import bangun_matriks_konfusi
 from evaluation.metrics import hitung_seluruh_metrik_evaluasi
 
 
-class UjiArsitekturDanPipelineMandiri(unittest.TestCase):
-    """Menguji arsitektur YOLOv8 polosan, preprocessing 160x160, FaceNet mandiri, Triplet Loss, dan evaluasi F1."""
+class UjiArsitekturDanPipeline(unittest.TestCase):
+    """Menguji arsitektur YOLOv8, preprocessing 160x160, JaringanFaceNet, Triplet Loss, dan evaluasi F1."""
 
     def setUp(self):
         self.folder_sementara = Path(tempfile.mkdtemp(prefix="indolens_uji_"))
@@ -86,9 +86,9 @@ class UjiArsitekturDanPipelineMandiri(unittest.TestCase):
         tensor_chw = proses_lengkap_citra_wajah_ke_tensor(wajah_160)
         self.assertEqual(tuple(tensor_chw.shape), (1, 3, 160, 160))
 
-    def test_03_jaringan_facenet_mandiri_dan_triplet_loss(self):
-        """Memastikan JaringanFaceNetMandiri menghasilkan vektor 512-D L2-normalized dan Triplet Loss dapat di-backward."""
-        jaringan = JaringanFaceNetMandiri(dimensi_embedding=512)
+    def test_03_jaringan_facenet_dan_triplet_loss(self):
+        """Memastikan JaringanFaceNet menghasilkan vektor 512-D L2-normalized dan Triplet Loss dapat di-backward."""
+        jaringan = JaringanFaceNet(dimensi_embedding=512)
         tensor_a = torch.randn(4, 3, 160, 160)
         tensor_p = torch.randn(4, 3, 160, 160)
         tensor_n = torch.randn(4, 3, 160, 160)

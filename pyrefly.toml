@@ -1,0 +1,8 @@
+project_includes = ["python", "training_python"]
+search_path = [
+    ".",
+    "python",
+    "training_python",
+    "training_python/01_training_model_yolo",
+    "training_python/02_training_dataset_wajah_aktor",
+]
